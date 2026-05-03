@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Founder Stack</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Private founder operating system</p>
+          <h1>Founder Stack</h1>
+          <p class="hero-copy">
+            A focused place for your CEO, COO, and CFO to push a daily update,
+            track what changed, and keep one clean operating history.
+          </p>
+        </div>
+        <div class="hero-chip">
+          <span>Daily check-ins</span>
+          <span>Append-only push history</span>
+          <span>Team codes</span>
+        </div>
+      </header>
+
+      <main id="app"></main>
+    </div>
+
+    <template id="auth-template">
+      <section class="panel auth-grid">
+        <div class="auth-copy">
+          <p class="section-label">How it works</p>
+          <h2>Keep the founder room tight.</h2>
+          <p>
+            Sign in with an email and team code. The first person on a new team
+            code can create the workspace, then the rest of the team joins the
+            same code.
+          </p>
+          <ul class="feature-list">
+            <li>One team can have multiple members and its own update log.</li>
+            <li>Each push is timestamped and never overwritten.</li>
+            <li>Daily updates surface wins, blockers, and next moves fast.</li>
+          </ul>
+        </div>
+
+        <form id="auth-form" class="card form-card">
+          <p class="section-label">Email sign-in</p>
+          <label>
+            <span>Email</span>
+            <input type="email" name="email" placeholder="ceo@yourteam.com" required />
+          </label>
+          <label>
+            <span>Team code</span>
+            <input
+              type="text"
+              name="teamCode"
+              placeholder="FOUNDERS-ALPHA"
+              minlength="4"
+              required
+            />
+          </label>
+          <label>
+            <span>Role</span>
+            <select name="role" required>
+              <option value="CEO">CEO</option>
+              <option value="COO">COO</option>
+              <option value="CFO">CFO</option>
+              <option value="Founder">Founder</option>
+            </select>
+          </label>
+          <button type="submit">Enter workspace</button>
+          <p class="helper">
+            Prototype note: this uses local browser storage to simulate sign-in.
+            Production would swap in real magic-link email auth.
+          </p>
+        </form>
+      </section>
+    </template>
+
+    <template id="workspace-template">
+      <section class="workspace">
+        <div class="workspace-top">
+          <div class="team-card panel">
+            <div class="team-meta">
+              <p class="section-label">Team room</p>
+              <h2 id="team-name"></h2>
+            </div>
+            <div class="team-inline">
+              <div>
+                <span class="meta-label">Team code</span>
+                <strong id="team-code"></strong>
+              </div>
+              <div>
+                <span class="meta-label">Signed in as</span>
+                <strong id="member-summary"></strong>
+              </div>
+            </div>
+            <div class="team-actions">
+              <button id="sign-out" class="ghost-button" type="button">Sign out</button>
+              <button id="seed-demo" class="ghost-button" type="button">Load sample pushes</button>
+            </div>
+          </div>
+
+          <div class="panel digest-panel">
+            <p class="section-label">Today at a glance</p>
+            <div class="digest-grid">
+              <div>
+                <span class="metric" id="push-count">0</span>
+                <span class="metric-label">Total pushes</span>
+              </div>
+              <div>
+                <span class="metric" id="today-count">0</span>
+                <span class="metric-label">Today</span>
+              </div>
+              <div>
+                <span class="metric" id="member-count">0</span>
+                <span class="metric-label">Members seen</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="workspace-grid">
+          <section class="panel">
+            <div class="composer-head">
+              <div>
+                <p class="section-label">Push an update</p>
+                <h3>Daily founder note</h3>
+              </div>
+              <span class="push-badge" id="next-push-id"></span>
+            </div>
+
+            <form id="update-form" class="stack-form">
+              <label>
+                <span>Headline</span>
+                <input
+                  type="text"
+                  name="headline"
+                  maxlength="80"
+                  placeholder="Closed April books and locked next week's hiring plan"
+                  required
+                />
+              </label>
+              <label>
+                <span>Wins</span>
+                <textarea
+                  name="wins"
+                  rows="3"
+                  placeholder="What moved forward today?"
+                  required
+                ></textarea>
+              </label>
+              <label>
+                <span>Blockers</span>
+                <textarea
+                  name="blockers"
+                  rows="3"
+                  placeholder="What is stuck or risky?"
+                  required
+                ></textarea>
+              </label>
+              <label>
+                <span>Next move</span>
+                <textarea
+                  name="nextMove"
+                  rows="3"
+                  placeholder="What happens next?"
+                  required
+                ></textarea>
+              </label>
+              <button type="submit">Push to stack</button>
+            </form>
+          </section>
+
+          <section class="panel">
+            <div class="history-head">
+              <div>
+                <p class="section-label">History</p>
+                <h3>Update stack</h3>
+              </div>
+              <button id="export-json" class="ghost-button" type="button">Export JSON</button>
+            </div>
+            <div id="history-list" class="history-list"></div>
+          </section>
+        </div>
+      </section>
+    </template>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
