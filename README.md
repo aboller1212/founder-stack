@@ -7,13 +7,15 @@ Founder Stack is a lightweight MVP for a three-founder team that wants:
 - Team-code based separation between rooms
 - An email-style sign-in flow
 
-## Run it
+## Run it locally
+
+Use any simple static file server. For example:
 
 ```bash
-npm start
+python3 -m http.server 4173
 ```
 
-Then open `http://localhost:4173`.
+Then open `http://127.0.0.1:4173`.
 
 ## What this prototype includes
 
@@ -22,6 +24,7 @@ Then open `http://localhost:4173`.
 - Founder-role sign-in for CEO, COO, CFO, or generic founder
 - Append-only push log with timestamps and push IDs
 - JSON export for a team's history
+- Static deployment on Vercel with no server runtime required
 
 ## Production version I would build next
 

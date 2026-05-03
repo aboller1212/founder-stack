@@ -1,9 +1,0 @@
-{
-  "name": "founder-stack",
-  "version": "1.0.0",
-  "private": true,
-  "description": "Prototype founder update stack for a small team",
-  "scripts": {
-    "start": "node server.js"
-  }
-}
