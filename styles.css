@@ -229,7 +229,7 @@ h4 {
 .prompt-card,
 .idea-card,
 .feed-card {
-  padding: 18px;
+  padding: 16px;
 }
 
 .capture-grid {
@@ -256,7 +256,7 @@ h4 {
 .feed-list,
 .comment-list {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .task-item {
@@ -400,7 +400,7 @@ button:hover {
 
 .feed-card {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .feed-meta,
@@ -410,6 +410,15 @@ button:hover {
   flex-wrap: wrap;
   gap: 8px 12px;
   font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.compact-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  font-size: 0.84rem;
   color: var(--muted);
 }
 
@@ -424,23 +433,76 @@ button:hover {
   margin-bottom: 10px;
 }
 
+.entry-id.compact {
+  margin-bottom: 0;
+  padding: 4px 8px;
+  font-size: 0.72rem;
+}
+
 .entry-note,
 .comment-body {
   white-space: pre-wrap;
 }
 
-.comment-thread {
+.comment-shell {
   display: grid;
-  gap: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(23, 32, 29, 0.08);
+}
+
+.comment-toggle {
+  justify-self: start;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+}
+
+.comment-thread {
+  display: none;
+}
+
+.comment-thread.is-open {
+  display: grid;
+  gap: 10px;
 }
 
 .comment-item {
-  padding: 12px 14px;
+  padding: 10px 12px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.66);
   border: 1px solid var(--line);
+}
+
+.comment-form {
+  grid-template-columns: 1fr auto;
+  align-items: end;
+}
+
+.comment-form textarea {
+  min-height: 72px;
+  padding: 12px 14px;
+}
+
+.comment-form button {
+  padding: 10px 14px;
+}
+
+.ideas-panel {
+  align-content: start;
+}
+
+.ideas-panel .stack-form textarea {
+  min-height: 120px;
+}
+
+.ideas-panel .stack-form button {
+  justify-self: start;
+  padding-inline: 16px;
+}
+
+.idea-list {
+  align-content: start;
 }
 
 .history-empty {
@@ -504,7 +566,8 @@ button:hover {
   .task-form,
   .field-head,
   .prompt-head,
-  .feed-card-head {
+  .feed-card-head,
+  .comment-form {
     grid-template-columns: 1fr;
     flex-direction: column;
   }

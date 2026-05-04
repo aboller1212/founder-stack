@@ -21,6 +21,7 @@ const state = {
   updates: [],
   weekStart: "",
   weeklyGoal: null,
+  openCommentThreads: new Set(),
 };
 
 const updateRoleMap = new Map();
@@ -247,6 +248,16 @@ function commentsByUpdateId() {
     map[comment.update_id].push(comment);
     return map;
   }, {});
+}
+
+function toggleCommentThread(updateId) {
+  if (state.openCommentThreads.has(updateId)) {
+    state.openCommentThreads.delete(updateId);
+  } else {
+    state.openCommentThreads.add(updateId);
+  }
+
+  renderWorkspace();
 }
 
 function tasksByAssignee() {
@@ -606,8 +617,8 @@ function renderIdeas() {
     .map(
       (idea) => `
         <article class="idea-card">
-          <div class="idea-meta">
-            <strong>${escapeHtml(idea.author_role)}</strong>
+          <div class="compact-meta">
+            <span class="entry-id compact">${escapeHtml(idea.author_role)}</span>
             <span>${escapeHtml(founderNameFromEmail(idea.author_email))}</span>
             <span>${escapeHtml(formatTime(idea.created_at))}</span>
           </div>
@@ -637,6 +648,7 @@ function renderFeedColumns() {
     feed.innerHTML = updates
       .map((update) => {
         const comments = commentGroups[update.id] || [];
+        const isOpen = state.openCommentThreads.has(update.id);
         return `
           <article class="feed-card" data-update-id="${update.id}">
             <div class="feed-card-head">
@@ -650,36 +662,47 @@ function renderFeedColumns() {
               </div>
             </div>
             <div class="entry-note">${escapeHtml(update.wins)}</div>
-            <div class="comment-thread">
-              <div class="comment-list">
-                ${
-                  comments.length
-                    ? comments
-                        .map(
-                          (comment) => `
-                            <div class="comment-item">
-                              <div class="comment-meta">
-                                <strong>${escapeHtml(comment.author_role)}</strong>
-                                <span>${escapeHtml(founderNameFromEmail(comment.author_email))}</span>
-                                <span>${escapeHtml(formatTime(comment.created_at))}</span>
+            <div class="comment-shell ${isOpen ? "is-open" : ""}">
+              <button class="comment-toggle ghost-button" type="button" data-update-id="${update.id}">
+                Comments (${comments.length})
+              </button>
+              <div class="comment-thread ${isOpen ? "is-open" : ""}">
+                <div class="comment-list">
+                  ${
+                    comments.length
+                      ? comments
+                          .map(
+                            (comment) => `
+                              <div class="comment-item">
+                                <div class="compact-meta">
+                                  <strong>${escapeHtml(comment.author_role)}</strong>
+                                  <span>${escapeHtml(founderNameFromEmail(comment.author_email))}</span>
+                                  <span>${escapeHtml(formatTime(comment.created_at))}</span>
+                                </div>
+                                <div class="comment-body">${escapeHtml(comment.body)}</div>
                               </div>
-                              <div class="comment-body">${escapeHtml(comment.body)}</div>
-                            </div>
-                          `
-                        )
-                        .join("")
-                    : '<div class="empty-chip">No comments yet.</div>'
-                }
+                            `
+                          )
+                          .join("")
+                      : '<div class="empty-chip">No comments yet.</div>'
+                  }
+                </div>
+                <form class="comment-form" data-update-id="${update.id}">
+                  <textarea name="commentBody" rows="2" placeholder="Add a comment"></textarea>
+                  <button type="submit">Comment</button>
+                </form>
               </div>
-              <form class="comment-form" data-update-id="${update.id}">
-                <textarea name="commentBody" rows="2" placeholder="Add a comment"></textarea>
-                <button type="submit">Comment</button>
-              </form>
             </div>
           </article>
         `;
       })
       .join("");
+  });
+
+  document.querySelectorAll(".comment-toggle").forEach((button) => {
+    button.addEventListener("click", () => {
+      toggleCommentThread(button.dataset.updateId);
+    });
   });
 
   document.querySelectorAll(".comment-form").forEach((form) => {
@@ -691,6 +714,7 @@ function renderFeedColumns() {
         return;
       }
 
+      state.openCommentThreads.add(form.dataset.updateId);
       void addComment(form.dataset.updateId, body);
       form.reset();
     });
