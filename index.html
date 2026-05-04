@@ -135,12 +135,23 @@
             </div>
 
             <form id="update-form" class="stack-form">
+              <div class="field-head">
+                <span>Title</span>
+                <button id="copy-title" class="ghost-button" type="button">Copy title</button>
+              </div>
+              <input
+                type="text"
+                name="headline"
+                maxlength="80"
+                placeholder="Paste the title from the AI response here."
+                required
+              />
               <label>
                 <span>Paste AI-written update</span>
                 <textarea
                   name="aiDraft"
                   rows="12"
-                  placeholder="Paste the plain-text response from your AI here."
+                  placeholder="Paste the plain-text response from your AI here, including the title line."
                   required
                 ></textarea>
               </label>

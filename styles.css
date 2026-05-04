@@ -292,6 +292,13 @@ button:hover {
   align-items: start;
 }
 
+.field-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+
 .prompt-head h4 {
   margin: 0;
   font-size: 1rem;

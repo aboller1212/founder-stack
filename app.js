@@ -19,7 +19,10 @@ const rolePrompts = {
 
 Do not use markdown, bullets, tables, or emojis.
 Keep it direct and readable.
-Return one short top line, then 2-4 compact paragraphs.
+Start with a line formatted exactly like:
+Title: [short title]
+
+Then leave one blank line and write 2-4 compact paragraphs.
 Focus on company movement, key decisions, risks, and what matters next.
 Do not add greetings or sign-offs.
 
@@ -33,7 +36,10 @@ Use this context:
 
 Do not use markdown, bullets, tables, or emojis.
 Keep it direct and readable.
-Return one short top line, then 2-4 compact paragraphs.
+Start with a line formatted exactly like:
+Title: [short title]
+
+Then leave one blank line and write 2-4 compact paragraphs.
 Focus on execution, coordination, bottlenecks, and what matters next.
 Do not add greetings or sign-offs.
 
@@ -47,7 +53,10 @@ Use this context:
 
 Do not use markdown, bullets, tables, or emojis.
 Keep it direct and readable.
-Return one short top line, then 2-4 compact paragraphs.
+Start with a line formatted exactly like:
+Title: [short title]
+
+Then leave one blank line and write 2-4 compact paragraphs.
 Focus on cash, numbers, exposure, assumptions, and what matters next.
 Do not add greetings or sign-offs.
 
@@ -61,7 +70,10 @@ Use this context:
 
 Do not use markdown, bullets, tables, or emojis.
 Keep it direct and readable.
-Return one short top line, then 2-4 compact paragraphs.
+Start with a line formatted exactly like:
+Title: [short title]
+
+Then leave one blank line and write 2-4 compact paragraphs.
 Focus on what moved, what needs attention, and what matters next.
 Do not add greetings or sign-offs.
 
@@ -197,9 +209,11 @@ async function addUpdate(formData) {
   }
 
   const aiDraft = String(formData.get("aiDraft")).trim();
+  const typedHeadline = String(formData.get("headline")).trim();
+  const parsedDraft = parseAIDraft(aiDraft, state.membership.role);
   const payload = {
-    aiDraft,
-    headline: getDerivedHeadline(aiDraft, state.membership.role),
+    aiDraft: parsedDraft.body,
+    headline: typedHeadline || parsedDraft.headline,
   };
 
   try {
@@ -230,6 +244,38 @@ function getDerivedHeadline(text, role) {
       .find((line) => line.length > 0) || `${role} daily update`;
 
   return firstMeaningfulLine.slice(0, 80);
+}
+
+function parseAIDraft(text, role) {
+  const lines = text.split("\n");
+  const firstMeaningfulIndex = lines.findIndex((line) => line.trim().length > 0);
+
+  if (firstMeaningfulIndex === -1) {
+    return {
+      headline: `${role} daily update`,
+      body: "",
+    };
+  }
+
+  const firstMeaningfulLine = lines[firstMeaningfulIndex].trim();
+  const titleMatch = firstMeaningfulLine.match(/^title:\s*(.+)$/i);
+
+  if (!titleMatch) {
+    return {
+      headline: getDerivedHeadline(text, role),
+      body: text.trim(),
+    };
+  }
+
+  const body = lines
+    .slice(firstMeaningfulIndex + 1)
+    .join("\n")
+    .trim();
+
+  return {
+    headline: titleMatch[1].trim().slice(0, 80) || `${role} daily update`,
+    body,
+  };
 }
 
 function exportJson() {
@@ -362,6 +408,41 @@ function renderWorkspace() {
   document.querySelector("#export-json").addEventListener("click", exportJson);
 
   const updateForm = document.querySelector("#update-form");
+  const headlineInput = updateForm.querySelector('input[name="headline"]');
+  const draftInput = updateForm.querySelector('textarea[name="aiDraft"]');
+  const copyTitleButton = document.querySelector("#copy-title");
+
+  copyTitleButton.addEventListener("click", async () => {
+    if (!headlineInput.value.trim()) {
+      state.authMessage = "Add a title first, then copy it.";
+      state.authTone = "error";
+      renderWorkspace();
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(headlineInput.value.trim());
+      state.authMessage = "Title copied.";
+      state.authTone = "success";
+    } catch {
+      state.authMessage = "Copy failed. You can still select the title manually.";
+      state.authTone = "error";
+    }
+
+    renderWorkspace();
+  });
+
+  draftInput.addEventListener("blur", () => {
+    if (headlineInput.value.trim()) {
+      return;
+    }
+
+    const parsedDraft = parseAIDraft(draftInput.value, state.membership.role);
+    if (parsedDraft.headline) {
+      headlineInput.value = parsedDraft.headline;
+    }
+  });
+
   updateForm.addEventListener("submit", (event) => {
     event.preventDefault();
     const formData = new FormData(updateForm);
@@ -369,6 +450,12 @@ function renderWorkspace() {
     if (!aiDraft) {
       return;
     }
+
+    if (!String(formData.get("headline")).trim()) {
+      const parsedDraft = parseAIDraft(aiDraft, state.membership.role);
+      formData.set("headline", parsedDraft.headline);
+    }
+
     void addUpdate(formData);
     updateForm.reset();
   });
