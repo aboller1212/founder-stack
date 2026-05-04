@@ -152,6 +152,7 @@ h3 {
 }
 
 .form-card,
+.prompt-card,
 .stack-form,
 .workspace {
   display: grid;
@@ -271,6 +272,38 @@ button:hover {
   gap: 14px;
 }
 
+.prompt-summary {
+  margin: 8px 0 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.prompt-card {
+  padding: 18px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid var(--line);
+}
+
+.prompt-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: start;
+}
+
+.prompt-head h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.prompt-script {
+  min-height: 260px;
+  font-size: 0.96rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
 .history-entry {
   align-items: start;
   padding: 18px;
@@ -313,6 +346,12 @@ button:hover {
   margin: 6px 0;
 }
 
+.entry-note {
+  color: var(--muted);
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
 .entry-copy strong {
   color: var(--forest);
 }
@@ -353,7 +392,8 @@ button:hover {
   .auth-grid,
   .workspace-top,
   .workspace-grid,
-  .history-entry {
+  .history-entry,
+  .prompt-head {
     grid-template-columns: 1fr;
     flex-direction: column;
   }

@@ -117,46 +117,30 @@
             <div class="composer-head">
               <div>
                 <p class="section-label">Push an update</p>
-                <h3>Daily founder note</h3>
+                <h3 id="prompt-role-title">Daily founder note</h3>
+                <p id="prompt-role-summary" class="prompt-summary"></p>
               </div>
               <span class="push-badge" id="next-push-id"></span>
             </div>
 
+            <div class="prompt-card">
+              <div class="prompt-head">
+                <div>
+                  <p class="section-label">AI Prompt</p>
+                  <h4 id="prompt-label">Copy this into your AI</h4>
+                </div>
+                <button id="copy-prompt" class="ghost-button" type="button">Copy prompt</button>
+              </div>
+              <textarea id="prompt-script" class="prompt-script" rows="14" readonly></textarea>
+            </div>
+
             <form id="update-form" class="stack-form">
               <label>
-                <span>Headline</span>
-                <input
-                  type="text"
-                  name="headline"
-                  maxlength="80"
-                  placeholder="Closed April books and locked next week's hiring plan"
-                  required
-                />
-              </label>
-              <label>
-                <span>Wins</span>
+                <span>Paste AI-written update</span>
                 <textarea
-                  name="wins"
-                  rows="3"
-                  placeholder="What moved forward today?"
-                  required
-                ></textarea>
-              </label>
-              <label>
-                <span>Blockers</span>
-                <textarea
-                  name="blockers"
-                  rows="3"
-                  placeholder="What is stuck or risky?"
-                  required
-                ></textarea>
-              </label>
-              <label>
-                <span>Next move</span>
-                <textarea
-                  name="nextMove"
-                  rows="3"
-                  placeholder="What happens next?"
+                  name="aiDraft"
+                  rows="12"
+                  placeholder="Paste the plain-text response from your AI here."
                   required
                 ></textarea>
               </label>

@@ -11,6 +11,64 @@ const state = {
 };
 
 const updateRoleMap = new Map();
+const rolePrompts = {
+  CEO: {
+    title: "CEO prompt",
+    summary: "Use this to turn rough founder notes into a tight company-level update.",
+    prompt: `Write a concise daily CEO update for my cofounders in plain text only.
+
+Do not use markdown, bullets, tables, or emojis.
+Keep it direct and readable.
+Return one short top line, then 2-4 compact paragraphs.
+Focus on company movement, key decisions, risks, and what matters next.
+Do not add greetings or sign-offs.
+
+Use this context:
+[PASTE CEO NOTES HERE]`,
+  },
+  COO: {
+    title: "COO prompt",
+    summary: "Use this to turn execution notes into a clean operating update.",
+    prompt: `Write a concise daily COO update for my cofounders in plain text only.
+
+Do not use markdown, bullets, tables, or emojis.
+Keep it direct and readable.
+Return one short top line, then 2-4 compact paragraphs.
+Focus on execution, coordination, bottlenecks, and what matters next.
+Do not add greetings or sign-offs.
+
+Use this context:
+[PASTE COO NOTES HERE]`,
+  },
+  CFO: {
+    title: "CFO prompt",
+    summary: "Use this to turn finance notes into a clean financial update.",
+    prompt: `Write a concise daily CFO update for my cofounders in plain text only.
+
+Do not use markdown, bullets, tables, or emojis.
+Keep it direct and readable.
+Return one short top line, then 2-4 compact paragraphs.
+Focus on cash, numbers, exposure, assumptions, and what matters next.
+Do not add greetings or sign-offs.
+
+Use this context:
+[PASTE CFO NOTES HERE]`,
+  },
+  Founder: {
+    title: "Founder prompt",
+    summary: "Use this to turn rough notes into a crisp founder update.",
+    prompt: `Write a concise daily founder update for my cofounders in plain text only.
+
+Do not use markdown, bullets, tables, or emojis.
+Keep it direct and readable.
+Return one short top line, then 2-4 compact paragraphs.
+Focus on what moved, what needs attention, and what matters next.
+Do not add greetings or sign-offs.
+
+Use this context:
+[PASTE FOUNDER NOTES HERE]`,
+  },
+};
 
 function getTodayLocalDate() {
   const now = new Date();
@@ -138,11 +196,10 @@ async function addUpdate(formData) {
     return;
   }
 
+  const aiDraft = String(formData.get("aiDraft")).trim();
   const payload = {
-    headline: String(formData.get("headline")).trim(),
-    wins: String(formData.get("wins")).trim(),
-    blockers: String(formData.get("blockers")).trim(),
-    nextMove: String(formData.get("nextMove")).trim(),
+    aiDraft,
+    headline: getDerivedHeadline(aiDraft, state.membership.role),
   };
 
   try {
@@ -159,6 +216,20 @@ async function addUpdate(formData) {
     state.authTone = "error";
     render();
   }
+}
+
+function getPromptForRole(role) {
+  return rolePrompts[role] || rolePrompts.Founder;
+}
+
+function getDerivedHeadline(text, role) {
+  const firstMeaningfulLine =
+    text
+      .split("\n")
+      .map((line) => line.trim())
+      .find((line) => line.length > 0) || `${role} daily update`;
+
+  return firstMeaningfulLine.slice(0, 80);
 }
 
 function exportJson() {
@@ -236,9 +307,7 @@ function renderHistory() {
           </div>
           <div class="entry-copy">
             <h4>${escapeHtml(update.headline)}</h4>
-            <p><strong>Wins:</strong> ${escapeHtml(update.wins)}</p>
-            <p><strong>Blockers:</strong> ${escapeHtml(update.blockers)}</p>
-            <p><strong>Next:</strong> ${escapeHtml(update.next_move)}</p>
+            <div class="entry-note">${escapeHtml(update.wins)}</div>
           </div>
         </article>
       `;
@@ -268,6 +337,25 @@ function renderWorkspace() {
   renderStatus(workspaceFeedback, state.authMessage, state.authTone);
   renderHistory();
 
+  const promptConfig = getPromptForRole(state.membership.role);
+  document.querySelector("#prompt-role-title").textContent = `${state.membership.role} daily update`;
+  document.querySelector("#prompt-role-summary").textContent = promptConfig.summary;
+  document.querySelector("#prompt-label").textContent = promptConfig.title;
+  document.querySelector("#prompt-script").value = promptConfig.prompt;
+
+  document.querySelector("#copy-prompt").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(promptConfig.prompt);
+      state.authMessage = `${state.membership.role} prompt copied. Paste it into your AI, then paste the response back here.`;
+      state.authTone = "success";
+    } catch {
+      state.authMessage = "Copy failed. You can still select the prompt text manually.";
+      state.authTone = "error";
+    }
+
+    renderWorkspace();
+  });
+
   document.querySelector("#sign-out").addEventListener("click", () => {
     void signOut();
   });
@@ -276,7 +364,12 @@ function renderWorkspace() {
   const updateForm = document.querySelector("#update-form");
   updateForm.addEventListener("submit", (event) => {
     event.preventDefault();
-    void addUpdate(new FormData(updateForm));
+    const formData = new FormData(updateForm);
+    const aiDraft = String(formData.get("aiDraft")).trim();
+    if (!aiDraft) {
+      return;
+    }
+    void addUpdate(formData);
     updateForm.reset();
   });
 }

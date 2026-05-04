@@ -11,10 +11,10 @@ module.exports = async function handler(request, response) {
   }
 
   try {
-    const { headline, wins, blockers, nextMove } = request.body || {};
+    const { aiDraft, headline } = request.body || {};
 
-    if (!headline || !wins || !blockers || !nextMove) {
-      return json(response, 400, { error: "All update fields are required." });
+    if (!aiDraft || !headline) {
+      return json(response, 400, { error: "The pasted AI update is required." });
     }
 
     await supabaseFetch("/rest/v1/updates", {
@@ -26,9 +26,9 @@ module.exports = async function handler(request, response) {
         team_id: session.teamId,
         user_id: session.userId,
         headline: String(headline).trim(),
-        wins: String(wins).trim(),
-        blockers: String(blockers).trim(),
-        next_move: String(nextMove).trim(),
+        wins: String(aiDraft).trim(),
+        blockers: "",
+        next_move: "",
       }),
     });
 
