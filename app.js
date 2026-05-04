@@ -1,18 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2?bundle";
-import APP_CONFIG from "./config.js";
-
 const app = document.querySelector("#app");
-
-const supabase = createClient(
-  APP_CONFIG.supabaseUrl,
-  APP_CONFIG.supabasePublishableKey,
-  {
-    auth: {
-      detectSessionInUrl: false,
-      flowType: "pkce",
-    },
-  }
-);
 
 const state = {
   authMessage: "",
@@ -65,141 +51,79 @@ function renderStatus(container, message, tone = "info") {
   container.innerHTML = `<div class="status-callout ${tone}">${escapeHtml(message)}</div>`;
 }
 
-async function exchangeAuthCodeIfPresent() {
-  const params = new URL(window.location.href).searchParams;
-  const authCode = params.get("code");
+async function api(path, options = {}) {
+  const response = await fetch(path, {
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+    ...options,
+  });
 
-  if (!authCode) {
-    return;
+  const contentType = response.headers.get("content-type") || "";
+  const payload = contentType.includes("application/json")
+    ? await response.json()
+    : { error: "Unexpected response from server." };
+
+  if (!response.ok) {
+    throw new Error(payload.error || "Request failed.");
   }
 
-  const { error } = await supabase.auth.exchangeCodeForSession(authCode);
-
-  if (error) {
-    state.authMessage = error.message;
-    state.authTone = "error";
-  }
-
-  const cleanUrl = new URL(window.location.href);
-  cleanUrl.searchParams.delete("code");
-  cleanUrl.searchParams.delete("type");
-  window.history.replaceState({}, "", cleanUrl.pathname || "/");
+  return payload;
 }
 
 async function fetchWorkspace() {
-  const sessionResult = await supabase.auth.getSession();
-  state.session = sessionResult.data.session;
+  try {
+    const payload = await api("/api/workspace", { method: "GET" });
+    state.session = payload.session;
+    state.team = payload.team;
+    state.membership = payload.membership;
+    state.memberships = payload.memberships || [];
+    state.updates = payload.updates || [];
+    state.authMessage = "";
+    state.authTone = "info";
 
-  if (!state.session?.user) {
+    updateRoleMap.clear();
+    state.memberships.forEach((member) => {
+      if (member.user_id) {
+        updateRoleMap.set(member.user_id, member.role);
+      }
+    });
+  } catch (error) {
+    state.session = null;
+    state.team = null;
     state.membership = null;
     state.memberships = [];
-    state.team = null;
     state.updates = [];
-    return;
   }
-
-  const user = state.session.user;
-
-  const claimResult = await supabase
-    .from("memberships")
-    .update({ user_id: user.id })
-    .eq("email", user.email)
-    .is("user_id", null);
-
-  if (claimResult.error) {
-    state.authMessage = claimResult.error.message;
-    state.authTone = "error";
-  }
-
-  const membershipResult = await supabase
-    .from("memberships")
-    .select("id, team_id, email, role, user_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (membershipResult.error) {
-    state.authMessage = membershipResult.error.message;
-    state.authTone = "error";
-    return;
-  }
-
-  if (!membershipResult.data) {
-    state.membership = null;
-    state.team = null;
-    state.memberships = [];
-    state.updates = [];
-    state.authMessage =
-      "This email is authenticated, but it is not on the founder roster yet.";
-    state.authTone = "error";
-    return;
-  }
-
-  state.membership = membershipResult.data;
-
-  const [teamResult, membersResult, updatesResult] = await Promise.all([
-    supabase
-      .from("teams")
-      .select("id, name, created_at")
-      .eq("id", state.membership.team_id)
-      .single(),
-    supabase
-      .from("memberships")
-      .select("id, email, role, user_id")
-      .eq("team_id", state.membership.team_id)
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("updates")
-      .select("id, team_id, user_id, headline, wins, blockers, next_move, created_at")
-      .eq("team_id", state.membership.team_id)
-      .order("created_at", { ascending: false }),
-  ]);
-
-  if (teamResult.error || membersResult.error || updatesResult.error) {
-    state.authMessage =
-      teamResult.error?.message ||
-      membersResult.error?.message ||
-      updatesResult.error?.message ||
-      "Unable to load the founder workspace.";
-    state.authTone = "error";
-    return;
-  }
-
-  state.team = teamResult.data;
-  state.memberships = membersResult.data;
-  state.updates = updatesResult.data;
-
-  updateRoleMap.clear();
-  state.memberships.forEach((member) => {
-    if (member.user_id) {
-      updateRoleMap.set(member.user_id, member.role);
-    }
-  });
 }
 
-async function requestMagicLink(email) {
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: {
-      emailRedirectTo: APP_CONFIG.siteUrl,
-      shouldCreateUser: false,
-    },
-  });
+async function signIn(email, teamCode) {
+  try {
+    const payload = await api("/api/session", {
+      method: "POST",
+      body: JSON.stringify({ email, teamCode }),
+    });
 
-  if (error) {
+    state.session = payload.session;
+    state.authMessage = "";
+    await fetchWorkspace();
+    render();
+  } catch (error) {
     state.authMessage = error.message;
     state.authTone = "error";
     render();
-    return;
   }
-
-  state.authMessage =
-    "Magic link sent. Open the email on this same device and browser to finish sign-in.";
-  state.authTone = "success";
-  render();
 }
 
 async function signOut() {
-  await supabase.auth.signOut();
+  try {
+    await api("/api/session", { method: "DELETE" });
+  } catch {
+    // Clear local state even if the cookie is already gone.
+  }
+
   state.session = null;
   state.membership = null;
   state.memberships = [];
@@ -210,31 +134,31 @@ async function signOut() {
 }
 
 async function addUpdate(formData) {
-  if (!state.membership || !state.session?.user) {
+  if (!state.membership || !state.session) {
     return;
   }
 
   const payload = {
-    team_id: state.membership.team_id,
-    user_id: state.session.user.id,
     headline: String(formData.get("headline")).trim(),
     wins: String(formData.get("wins")).trim(),
     blockers: String(formData.get("blockers")).trim(),
-    next_move: String(formData.get("nextMove")).trim(),
+    nextMove: String(formData.get("nextMove")).trim(),
   };
 
-  const { error } = await supabase.from("updates").insert(payload);
+  try {
+    await api("/api/updates", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
 
-  if (error) {
+    state.authMessage = "";
+    await fetchWorkspace();
+    render();
+  } catch (error) {
     state.authMessage = error.message;
     state.authTone = "error";
     render();
-    return;
   }
-
-  state.authMessage = "";
-  await fetchWorkspace();
-  render();
 }
 
 function exportJson() {
@@ -277,7 +201,10 @@ function renderAuth() {
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const formData = new FormData(form);
-    void requestMagicLink(String(formData.get("email")).trim().toLowerCase());
+    void signIn(
+      String(formData.get("email")).trim().toLowerCase(),
+      String(formData.get("teamCode")).trim().toUpperCase()
+    );
   });
 }
 
@@ -296,12 +223,15 @@ function renderHistory() {
 
   historyList.innerHTML = state.updates
     .map((update, index) => {
-      const role = updateRoleMap.get(update.user_id) || "Founder";
+      const role = updateRoleMap.get(update.user_id) || update.author_role || "Founder";
+      const authorEmail = update.author_email || state.memberships.find((member) => member.user_id === update.user_id)?.email || "";
+
       return `
         <article class="history-entry">
           <div class="entry-meta">
             <span class="entry-id">push-${String(state.updates.length - index).padStart(4, "0")}</span>
             <div class="entry-author">${escapeHtml(role)}</div>
+            <div class="entry-time">${escapeHtml(authorEmail)}</div>
             <div class="entry-time">${escapeHtml(update.created_at ? formatTime(update.created_at) : "")}</div>
           </div>
           <div class="entry-copy">
@@ -317,7 +247,7 @@ function renderHistory() {
 }
 
 function renderWorkspace() {
-  if (!state.session?.user || !state.membership || !state.team) {
+  if (!state.session || !state.membership || !state.team) {
     renderAuth();
     return;
   }
@@ -352,7 +282,7 @@ function renderWorkspace() {
 }
 
 function render() {
-  if (!state.session?.user || !state.membership || !state.team) {
+  if (!state.session || !state.membership || !state.team) {
     renderAuth();
     return;
   }
@@ -361,13 +291,8 @@ function render() {
 }
 
 async function boot() {
-  await exchangeAuthCodeIfPresent();
   await fetchWorkspace();
   render();
-
-  supabase.auth.onAuthStateChange(() => {
-    void fetchWorkspace().then(render);
-  });
 }
 
 void boot();

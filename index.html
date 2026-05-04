@@ -33,14 +33,14 @@
           <p class="section-label">How it works</p>
           <h2>Keep the founder room tight.</h2>
           <p>
-            Sign in with your founder email. Access is controlled by the email
-            addresses preloaded in Supabase, so only your CEO, COO, and CFO
-            accounts can enter the room.
+            Sign in with your founder email and team code. The app checks your
+            founder roster in Supabase, assigns your role automatically, and
+            opens the shared workspace for your team.
           </p>
           <ul class="feature-list">
             <li>One founder team shares one live update room.</li>
             <li>Each push is timestamped and never overwritten.</li>
-            <li>Email magic links handle login without passwords.</li>
+            <li>Role and access are assigned from your founder roster.</li>
           </ul>
         </div>
 
@@ -50,11 +50,21 @@
             <span>Email</span>
             <input type="email" name="email" placeholder="ceo@yourteam.com" required />
           </label>
-          <button type="submit">Send magic link</button>
+          <label>
+            <span>Team code</span>
+            <input
+              type="text"
+              name="teamCode"
+              placeholder="FOUNDERS-FORGE"
+              minlength="4"
+              required
+            />
+          </label>
+          <button type="submit">Enter workspace</button>
           <div id="auth-feedback"></div>
           <p class="helper">
-            Live mode: login is verified through Supabase email auth and your
-            founder membership is matched by email.
+            Live mode: the app checks your founder email and team code against
+            the private team roster.
           </p>
         </form>
       </section>
@@ -169,6 +179,6 @@
       </section>
     </template>
 
-    <script type="module" src="./app.js"></script>
+    <script src="./app.js"></script>
   </body>
 </html>

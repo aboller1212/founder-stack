@@ -5,7 +5,7 @@ Founder Stack is a lightweight MVP for a three-founder team that wants:
 - Daily updates from CEO, COO, and CFO
 - A history of every push to the update stack
 - Team-code based separation between rooms
-- An email-style sign-in flow
+- An email-plus-team-code sign-in flow
 
 ## Run it locally
 
@@ -17,14 +17,20 @@ python3 -m http.server 4173
 
 Then open `http://127.0.0.1:4173`.
 
+For the live server-backed version, add these Vercel environment variables:
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SESSION_SECRET`
+
 ## What this prototype includes
 
 - Local browser storage for sessions and team data
 - Team creation on first sign-in to a new team code
-- Founder-role sign-in for CEO, COO, CFO, or generic founder
+- Founder-role assignment from the Supabase membership roster
 - Append-only push log with timestamps and push IDs
 - JSON export for a team's history
-- Static deployment on Vercel with no server runtime required
+- Vercel deployment with lightweight `/api` serverless routes
 
 ## Production version I would build next
 
