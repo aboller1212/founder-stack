@@ -126,6 +126,20 @@ h4 {
   font-size: 0.9rem;
 }
 
+.push-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: start;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  min-height: 0;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  box-shadow: none;
+}
+
 .task-pill,
 .empty-chip {
   padding: 7px 10px;
@@ -197,6 +211,12 @@ h4 {
   align-items: start;
 }
 
+.composer-head,
+.history-head,
+.feed-card-head {
+  align-items: start;
+}
+
 .board-side {
   flex-direction: column;
   align-items: end;
@@ -230,6 +250,11 @@ h4 {
 .idea-card,
 .feed-card {
   padding: 16px;
+}
+
+.idea-card {
+  display: grid;
+  gap: 8px;
 }
 
 .capture-grid {
@@ -552,18 +577,25 @@ button:hover {
 .ideas-panel {
   align-content: start;
   grid-template-rows: auto auto minmax(0, 1fr);
-  height: clamp(360px, 48vh, 620px);
+  height: clamp(500px, 62vh, 780px);
   min-height: 0;
   overflow: hidden;
 }
 
+.ideas-panel .stack-form {
+  gap: 10px;
+}
+
 .ideas-panel .stack-form textarea {
-  min-height: 96px;
+  min-height: 78px;
+  max-height: 120px;
 }
 
 .ideas-panel .stack-form button {
   justify-self: start;
-  padding-inline: 16px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  box-shadow: none;
 }
 
 .idea-list {
