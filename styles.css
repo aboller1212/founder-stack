@@ -42,10 +42,10 @@ body {
 }
 
 .hero {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  align-items: end;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 28px;
+  align-items: start;
   margin-bottom: 20px;
 }
 
@@ -107,11 +107,16 @@ h4 {
 }
 
 .hero-chip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+  gap: 12px;
   justify-content: end;
-  max-width: 360px;
+  align-self: start;
+  max-width: none;
+}
+
+.hero-chip span:last-child {
+  grid-column: 2;
 }
 
 .hero-chip span,
@@ -208,6 +213,9 @@ h4 {
 }
 
 .board-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 420px);
+  gap: 24px;
   align-items: start;
 }
 
@@ -219,15 +227,19 @@ h4 {
 
 .board-side {
   flex-direction: column;
-  align-items: end;
-  min-width: 300px;
+  align-items: stretch;
+  min-width: 0;
 }
 
 .mini-meta-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(120px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px 18px;
   width: 100%;
+}
+
+#sign-out {
+  align-self: end;
 }
 
 .mini-meta-grid strong {
@@ -258,7 +270,7 @@ h4 {
 }
 
 .capture-grid {
-  grid-template-columns: 1.08fr 0.92fr;
+  grid-template-columns: minmax(0, 1.04fr) minmax(360px, 0.96fr);
   align-items: start;
 }
 
@@ -574,26 +586,31 @@ button:hover {
   padding: 10px 14px;
 }
 
+.goal-panel .field-head {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .ideas-panel {
   align-content: start;
   grid-template-rows: auto auto minmax(0, 1fr);
-  height: clamp(500px, 62vh, 780px);
+  height: clamp(430px, 55vh, 640px);
   min-height: 0;
   overflow: hidden;
 }
 
 .ideas-panel .stack-form {
-  gap: 10px;
+  gap: 8px;
 }
 
 .ideas-panel .stack-form textarea {
-  min-height: 78px;
-  max-height: 120px;
+  min-height: 64px;
+  max-height: 92px;
 }
 
 .ideas-panel .stack-form button {
   justify-self: start;
-  padding: 10px 14px;
+  padding: 8px 14px;
   border-radius: 14px;
   box-shadow: none;
 }
@@ -603,6 +620,7 @@ button:hover {
   min-height: 0;
   overflow-y: auto;
   padding-right: 6px;
+  padding-bottom: 10px;
 }
 
 .idea-list::-webkit-scrollbar {
@@ -656,6 +674,19 @@ button:hover {
 }
 
 @media (max-width: 1120px) {
+  .hero {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-chip {
+    grid-template-columns: repeat(2, max-content);
+    justify-content: start;
+  }
+
+  .hero-chip span:last-child {
+    grid-column: auto;
+  }
+
   .capture-grid,
   .feed-grid,
   .tasks-grid {
