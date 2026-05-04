@@ -29,71 +29,111 @@ const updateEmailMap = new Map();
 const rolePrompts = {
   CEO: {
     title: "CEO prompt",
-    summary: "Turn rough company notes into a crisp founder-facing operating update.",
-    prompt: `Write a concise daily CEO update for my cofounders in plain text only.
+    summary: "Turn rough company notes into a tight, copyable founder update.",
+    prompt: `Write a concise CEO update for my cofounders in plain text only.
 
-Do not use markdown, bullets, tables, or emojis.
-Keep it direct, practical, and easy to scan.
-Start with a line formatted exactly like:
+Use short, copyable hyphen bullets.
+Do not use markdown headings, tables, emojis, or long paragraphs.
+Keep it sharp, concrete, and under 120 words total.
+
+My raw notes:
+[PASTE CEO NOTES]
+
+Output exactly in this format:
+
 Title: [short title]
 
-Then leave one blank line and write 2-4 compact paragraphs.
-Focus on company movement, key decisions, risks, and what matters next.
-Do not add greetings or sign-offs.
+- What moved:
+[1-2 bullets on company progress, key decisions, traction, product, hiring, or direction]
 
-Use this context:
-[PASTE CEO NOTES HERE]`,
+- What needs attention:
+[1-2 bullets on risks, blockers, open decisions, or misalignment]
+
+- What happens next:
+[1-2 bullets on the next highest-leverage actions]
+
+Make it sound founder-to-founder, clear and operational, not polished or corporate.`,
   },
   COO: {
     title: "COO prompt",
-    summary: "Turn execution notes into a clean operational update for the team.",
-    prompt: `Write a concise daily COO update for my cofounders in plain text only.
+    summary: "Turn execution notes into a tight, copyable operating update.",
+    prompt: `Write a concise COO update for my cofounders in plain text only.
 
-Do not use markdown, bullets, tables, or emojis.
-Keep it direct, practical, and easy to scan.
-Start with a line formatted exactly like:
+Use short, copyable hyphen bullets.
+Do not use markdown headings, tables, emojis, or long paragraphs.
+Keep it sharp, concrete, and under 120 words total.
+
+My raw notes:
+[PASTE COO NOTES]
+
+Output exactly in this format:
+
 Title: [short title]
 
-Then leave one blank line and write 2-4 compact paragraphs.
-Focus on execution, coordination, bottlenecks, and what matters next.
-Do not add greetings or sign-offs.
+- What moved:
+[1-2 bullets on execution, coordination, delivery, team operations, or process]
 
-Use this context:
-[PASTE COO NOTES HERE]`,
+- What needs attention:
+[1-2 bullets on bottlenecks, dependencies, missed handoffs, or operational risk]
+
+- What happens next:
+[1-2 bullets on the next actions to keep execution tight]
+
+Make it sound direct, practical, and operating-focused.`,
   },
   CFO: {
     title: "CFO prompt",
-    summary: "Turn finance notes into a sharp financial update for the founder room.",
-    prompt: `Write a concise daily CFO update for my cofounders in plain text only.
+    summary: "Turn finance notes into a tight, copyable founder finance update.",
+    prompt: `Write a concise CFO update for my cofounders in plain text only.
 
-Do not use markdown, bullets, tables, or emojis.
-Keep it direct, practical, and easy to scan.
-Start with a line formatted exactly like:
+Use short, copyable hyphen bullets.
+Do not use markdown headings, tables, emojis, or long paragraphs.
+Keep it sharp, concrete, and under 120 words total.
+
+My raw notes:
+[PASTE CFO NOTES]
+
+Output exactly in this format:
+
 Title: [short title]
 
-Then leave one blank line and write 2-4 compact paragraphs.
-Focus on cash, exposure, assumptions, and what matters next.
-Do not add greetings or sign-offs.
+- What moved:
+[1-2 bullets on cash, reporting, collections, planning, expenses, or financial discipline]
 
-Use this context:
-[PASTE CFO NOTES HERE]`,
+- What needs attention:
+[1-2 bullets on financial risks, assumptions, timing issues, or exposure]
+
+- What happens next:
+[1-2 bullets on the next actions to improve clarity and control]
+
+Make it sound direct, grounded, and useful to founders.`,
   },
   Founder: {
     title: "Founder prompt",
-    summary: "Turn rough founder notes into a concise plain-text team update.",
-    prompt: `Write a concise daily founder update for my cofounders in plain text only.
+    summary: "Turn rough founder notes into a tight, copyable team update.",
+    prompt: `Write a concise founder update for my cofounders in plain text only.
 
-Do not use markdown, bullets, tables, or emojis.
-Keep it direct, practical, and easy to scan.
-Start with a line formatted exactly like:
+Use short, copyable hyphen bullets.
+Do not use markdown headings, tables, emojis, or long paragraphs.
+Keep it sharp, concrete, and under 120 words total.
+
+My raw notes:
+[PASTE FOUNDER NOTES]
+
+Output exactly in this format:
+
 Title: [short title]
 
-Then leave one blank line and write 2-4 compact paragraphs.
-Focus on what moved, what needs attention, and what matters next.
-Do not add greetings or sign-offs.
+- What moved:
+[1-2 bullets on the most important progress or movement]
 
-Use this context:
-[PASTE FOUNDER NOTES HERE]`,
+- What needs attention:
+[1-2 bullets on risks, blockers, or open decisions]
+
+- What happens next:
+[1-2 bullets on the next highest-leverage actions]
+
+Make it sound direct, clear, and useful to cofounders.`,
   },
 };
 
