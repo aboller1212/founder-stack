@@ -386,16 +386,49 @@ button:hover {
 
 .feed-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  min-height: 0;
 }
 
 .feed-column {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 14px;
+  min-height: 0;
 }
 
 .feed-column-head {
   display: grid;
   gap: 4px;
+}
+
+.feed-shell {
+  display: grid;
+  gap: 16px;
+  max-height: min(78vh, 980px);
+  overflow: hidden;
+}
+
+.feed-list {
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  padding-right: 6px;
+  align-content: start;
+}
+
+.feed-list::-webkit-scrollbar {
+  width: 10px;
+}
+
+.feed-list::-webkit-scrollbar-track {
+  background: rgba(23, 32, 29, 0.05);
+  border-radius: 999px;
+}
+
+.feed-list::-webkit-scrollbar-thumb {
+  background: rgba(181, 82, 51, 0.24);
+  border-radius: 999px;
 }
 
 .feed-card {
@@ -546,6 +579,17 @@ button:hover {
   .feed-grid,
   .tasks-grid {
     grid-template-columns: 1fr;
+  }
+
+  .feed-shell {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .feed-list {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
   }
 
   .board-head {
