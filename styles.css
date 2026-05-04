@@ -280,12 +280,17 @@ h4 {
 
 .tasks-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
 }
 
 .task-column {
   padding: 18px;
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 14px;
+  min-height: 0;
+  height: clamp(520px, 62vh, 860px);
+  overflow: hidden;
 }
 
 .task-column-head {
@@ -299,6 +304,27 @@ h4 {
 .comment-list {
   display: grid;
   gap: 10px;
+}
+
+.task-list {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 6px;
+  align-content: start;
+}
+
+.task-list::-webkit-scrollbar {
+  width: 10px;
+}
+
+.task-list::-webkit-scrollbar-track {
+  background: rgba(23, 32, 29, 0.05);
+  border-radius: 999px;
+}
+
+.task-list::-webkit-scrollbar-thumb {
+  background: rgba(181, 82, 51, 0.24);
+  border-radius: 999px;
 }
 
 .task-item {
@@ -714,6 +740,17 @@ button:hover {
   }
 
   .idea-list {
+    overflow: visible;
+    padding-right: 0;
+  }
+
+  .task-column {
+    height: auto;
+    overflow: visible;
+    grid-template-rows: auto;
+  }
+
+  .task-list {
     overflow: visible;
     padding-right: 0;
   }
