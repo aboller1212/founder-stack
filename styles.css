@@ -107,16 +107,12 @@ h4 {
 }
 
 .hero-chip {
-  display: grid;
-  grid-template-columns: repeat(2, max-content);
+  display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   justify-content: end;
   align-self: start;
-  max-width: none;
-}
-
-.hero-chip span:last-child {
-  grid-column: 2;
+  max-width: 560px;
 }
 
 .hero-chip span,
@@ -238,6 +234,13 @@ h4 {
   width: 100%;
 }
 
+.mini-stat {
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.56);
+  border: 1px solid var(--line);
+}
+
 #sign-out {
   align-self: end;
 }
@@ -245,6 +248,7 @@ h4 {
 .mini-meta-grid strong {
   display: block;
   font-size: 1rem;
+  margin-top: 4px;
 }
 
 .goal-panel,
@@ -270,7 +274,7 @@ h4 {
 }
 
 .capture-grid {
-  grid-template-columns: minmax(0, 1.04fr) minmax(360px, 0.96fr);
+  grid-template-columns: minmax(0, 0.92fr) minmax(420px, 1.08fr);
   align-items: start;
 }
 
@@ -594,7 +598,7 @@ button:hover {
 .ideas-panel {
   align-content: start;
   grid-template-rows: auto auto minmax(0, 1fr);
-  height: clamp(430px, 55vh, 640px);
+  height: clamp(540px, 68vh, 820px);
   min-height: 0;
   overflow: hidden;
 }
@@ -604,8 +608,8 @@ button:hover {
 }
 
 .ideas-panel .stack-form textarea {
-  min-height: 64px;
-  max-height: 92px;
+  min-height: 58px;
+  max-height: 80px;
 }
 
 .ideas-panel .stack-form button {
@@ -621,6 +625,7 @@ button:hover {
   overflow-y: auto;
   padding-right: 6px;
   padding-bottom: 10px;
+  gap: 12px;
 }
 
 .idea-list::-webkit-scrollbar {
@@ -679,12 +684,7 @@ button:hover {
   }
 
   .hero-chip {
-    grid-template-columns: repeat(2, max-content);
     justify-content: start;
-  }
-
-  .hero-chip span:last-child {
-    grid-column: auto;
   }
 
   .capture-grid,
