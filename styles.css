@@ -234,6 +234,7 @@ h4 {
 
 .capture-grid {
   grid-template-columns: 1.08fr 0.92fr;
+  align-items: start;
 }
 
 .tasks-grid {
@@ -388,6 +389,7 @@ button:hover {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: start;
   min-height: 0;
+  height: 100%;
 }
 
 .feed-column {
@@ -395,6 +397,7 @@ button:hover {
   grid-template-rows: auto minmax(0, 1fr);
   gap: 14px;
   min-height: 0;
+  height: 100%;
 }
 
 .feed-column-head {
@@ -404,6 +407,7 @@ button:hover {
 
 .feed-shell {
   display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 16px;
   max-height: min(78vh, 980px);
   overflow: hidden;
@@ -411,7 +415,7 @@ button:hover {
 
 .feed-list {
   min-height: 0;
-  max-height: 100%;
+  height: 100%;
   overflow-y: auto;
   padding-right: 6px;
   align-content: start;
@@ -523,10 +527,13 @@ button:hover {
 
 .ideas-panel {
   align-content: start;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  max-height: min(56vh, 620px);
+  overflow: hidden;
 }
 
 .ideas-panel .stack-form textarea {
-  min-height: 120px;
+  min-height: 96px;
 }
 
 .ideas-panel .stack-form button {
@@ -536,6 +543,23 @@ button:hover {
 
 .idea-list {
   align-content: start;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.idea-list::-webkit-scrollbar {
+  width: 10px;
+}
+
+.idea-list::-webkit-scrollbar-track {
+  background: rgba(23, 32, 29, 0.05);
+  border-radius: 999px;
+}
+
+.idea-list::-webkit-scrollbar-thumb {
+  background: rgba(181, 82, 51, 0.24);
+  border-radius: 999px;
 }
 
 .history-empty {
@@ -584,10 +608,22 @@ button:hover {
   .feed-shell {
     max-height: none;
     overflow: visible;
+    grid-template-rows: auto;
   }
 
   .feed-list {
+    height: auto;
+    overflow: visible;
+    padding-right: 0;
+  }
+
+  .ideas-panel {
     max-height: none;
+    overflow: visible;
+    grid-template-rows: auto;
+  }
+
+  .idea-list {
     overflow: visible;
     padding-right: 0;
   }
