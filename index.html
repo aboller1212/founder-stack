@@ -72,48 +72,98 @@
 
     <template id="workspace-template">
       <section class="workspace">
-        <div class="workspace-top">
-          <div class="team-card panel">
-            <div class="team-meta">
-              <p class="section-label">Team room</p>
+        <section class="panel board-panel">
+          <div class="board-head">
+            <div>
+              <p class="section-label">Weekly goals and tasks</p>
               <h2 id="team-name"></h2>
+              <p id="week-label" class="prompt-summary"></p>
             </div>
-            <div class="team-inline">
-              <div>
-                <span class="meta-label">Access model</span>
-                <strong>Invite-only founder roster</strong>
+            <div class="board-side">
+              <div class="mini-meta-grid">
+                <div>
+                  <span class="meta-label">Signed in as</span>
+                  <strong id="member-summary"></strong>
+                </div>
+                <div>
+                  <span class="meta-label">Total pushes</span>
+                  <strong id="push-count"></strong>
+                </div>
+                <div>
+                  <span class="meta-label">Today</span>
+                  <strong id="today-count"></strong>
+                </div>
+                <div>
+                  <span class="meta-label">Founders seen</span>
+                  <strong id="member-count"></strong>
+                </div>
               </div>
-              <div>
-                <span class="meta-label">Signed in as</span>
-                <strong id="member-summary"></strong>
-              </div>
-            </div>
-            <div class="team-actions">
               <button id="sign-out" class="ghost-button" type="button">Sign out</button>
             </div>
           </div>
 
-          <div class="panel digest-panel">
-            <p class="section-label">Today at a glance</p>
-            <div class="digest-grid">
-              <div>
-                <span class="metric" id="push-count">0</span>
-                <span class="metric-label">Total pushes</span>
-              </div>
-              <div>
-                <span class="metric" id="today-count">0</span>
-                <span class="metric-label">Today</span>
-              </div>
-              <div>
-                <span class="metric" id="member-count">0</span>
-                <span class="metric-label">Members seen</span>
-              </div>
+          <div class="goal-panel">
+            <div class="field-head">
+              <span>Weekly goal</span>
+              <button id="save-goal" class="ghost-button" type="button">Save weekly goal</button>
             </div>
+            <textarea
+              id="weekly-goal-input"
+              rows="3"
+              placeholder="Set the one goal the team should be driving this week."
+            ></textarea>
           </div>
-        </div>
 
-        <div class="workspace-grid">
-          <section class="panel">
+          <div class="tasks-grid">
+            <section class="task-column">
+              <div class="task-column-head">
+                <div>
+                  <p class="section-label">Owner</p>
+                  <h3>Alex</h3>
+                </div>
+                <span class="task-pill">CEO lane</span>
+              </div>
+              <div id="tasks-alex" class="task-list"></div>
+              <form class="task-form" data-assignee="Alex">
+                <input type="text" name="taskTitle" placeholder="Add a task for Alex" />
+                <button type="submit">Add</button>
+              </form>
+            </section>
+
+            <section class="task-column">
+              <div class="task-column-head">
+                <div>
+                  <p class="section-label">Owner</p>
+                  <h3>Ben</h3>
+                </div>
+                <span class="task-pill">Finance lane</span>
+              </div>
+              <div id="tasks-ben" class="task-list"></div>
+              <form class="task-form" data-assignee="Ben">
+                <input type="text" name="taskTitle" placeholder="Add a task for Ben" />
+                <button type="submit">Add</button>
+              </form>
+            </section>
+
+            <section class="task-column">
+              <div class="task-column-head">
+                <div>
+                  <p class="section-label">Owner</p>
+                  <h3>Zach</h3>
+                </div>
+                <span class="task-pill">Ops lane</span>
+              </div>
+              <div id="tasks-zach" class="task-list"></div>
+              <form class="task-form" data-assignee="Zach">
+                <input type="text" name="taskTitle" placeholder="Add a task for Zach" />
+                <button type="submit">Add</button>
+              </form>
+            </section>
+          </div>
+        </section>
+
+        <div class="capture-grid">
+          <section class="panel capture-panel">
             <div class="composer-head">
               <div>
                 <p class="section-label">Push an update</p>
@@ -131,7 +181,7 @@
                 </div>
                 <button id="copy-prompt" class="ghost-button" type="button">Copy prompt</button>
               </div>
-              <textarea id="prompt-script" class="prompt-script" rows="14" readonly></textarea>
+              <textarea id="prompt-script" class="prompt-script" rows="12" readonly></textarea>
             </div>
 
             <form id="update-form" class="stack-form">
@@ -150,7 +200,7 @@
                 <span>Paste AI-written update</span>
                 <textarea
                   name="aiDraft"
-                  rows="12"
+                  rows="10"
                   placeholder="Paste the plain-text response from your AI here, including the title line."
                   required
                 ></textarea>
@@ -159,18 +209,62 @@
             </form>
           </section>
 
-          <section class="panel">
+          <section class="panel ideas-panel">
             <div class="history-head">
               <div>
-                <p class="section-label">History</p>
-                <h3>Update stack</h3>
+                <p class="section-label">Idea board</p>
+                <h3>Founder parking lot</h3>
               </div>
-              <button id="export-json" class="ghost-button" type="button">Export JSON</button>
             </div>
-            <div id="workspace-feedback"></div>
-            <div id="history-list" class="history-list"></div>
+            <form id="idea-form" class="stack-form">
+              <label>
+                <span>New idea</span>
+                <textarea
+                  name="ideaBody"
+                  rows="5"
+                  placeholder="Drop an idea, question, or opportunity here for the team to see."
+                  required
+                ></textarea>
+              </label>
+              <button type="submit">Add idea</button>
+            </form>
+            <div id="ideas-list" class="idea-list"></div>
           </section>
         </div>
+
+        <section class="panel feed-shell">
+          <div class="history-head">
+            <div>
+              <p class="section-label">Founder feed</p>
+              <h3>Role-based update streams</h3>
+            </div>
+            <button id="export-json" class="ghost-button" type="button">Export JSON</button>
+          </div>
+          <div id="workspace-feedback"></div>
+          <div class="feed-grid">
+            <section class="feed-column">
+              <div class="feed-column-head">
+                <p class="section-label">CEO</p>
+                <h3 id="ceo-owner">CEO stream</h3>
+              </div>
+              <div id="feed-ceo" class="feed-list"></div>
+            </section>
+            <section class="feed-column">
+              <div class="feed-column-head">
+                <p class="section-label">COO</p>
+                <h3 id="coo-owner">COO stream</h3>
+              </div>
+              <div id="feed-coo" class="feed-list"></div>
+            </section>
+            <section class="feed-column">
+              <div class="feed-column-head">
+                <p class="section-label">CFO</p>
+                <h3 id="cfo-owner">CFO stream</h3>
+              </div>
+              <div id="feed-cfo" class="feed-list"></div>
+            </section>
+          </div>
+        </section>
       </section>
     </template>
 

@@ -35,6 +35,14 @@ async function supabaseFetch(path, options = {}) {
   return payload;
 }
 
+async function optionalSupabaseFetch(path, fallback) {
+  try {
+    return await supabaseFetch(path);
+  } catch {
+    return fallback;
+  }
+}
+
 function json(response, statusCode, payload, extraHeaders = {}) {
   response.status(statusCode).setHeader("Content-Type", "application/json; charset=utf-8");
   Object.entries(extraHeaders).forEach(([key, value]) => {
@@ -103,6 +111,37 @@ function getSessionFromRequest(request) {
   return verifySession(cookies[SESSION_COOKIE]);
 }
 
+function getCurrentWeekStart(date = new Date()) {
+  const now = new Date(date);
+  const day = now.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  now.setDate(now.getDate() + diff);
+  now.setHours(0, 0, 0, 0);
+  return now.toISOString().slice(0, 10);
+}
+
+function assertCEO(session) {
+  if (session.role !== "CEO") {
+    const error = new Error("Only the CEO can edit this section.");
+    error.statusCode = 403;
+    throw error;
+  }
+}
+
+function founderDisplayNameFromEmail(email) {
+  if (!email) {
+    return "Founder";
+  }
+
+  const localPart = email.split("@")[0] || "";
+  const normalized = localPart.replace(/[._-]+/g, " ").trim();
+  if (!normalized) {
+    return "Founder";
+  }
+
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
 async function findTeamByCode(teamCode) {
   const rows = await supabaseFetch(
     `/rest/v1/teams?select=id,name,invite_code,created_at&invite_code=eq.${encodeURIComponent(teamCode)}`
@@ -155,7 +194,7 @@ async function ensureMembershipUser(membership) {
   try {
     const created = await createAuthUser(membership.email);
     userId = created.user?.id || created.id;
-  } catch (error) {
+  } catch {
     const existingUser = await findAuthUserByEmail(membership.email);
     userId = existingUser?.id;
   }
@@ -169,13 +208,31 @@ async function ensureMembershipUser(membership) {
 }
 
 async function loadWorkspace(session) {
-  const [teamRows, memberships, updates] = await Promise.all([
+  const weekStart = getCurrentWeekStart();
+
+  const [teamRows, memberships, updates, comments, ideas, weeklyGoals, tasks] = await Promise.all([
     supabaseFetch(`/rest/v1/teams?select=id,name,created_at&id=eq.${session.teamId}`),
     supabaseFetch(
       `/rest/v1/memberships?select=id,email,role,user_id,created_at&team_id=eq.${session.teamId}&order=created_at.asc`
     ),
     supabaseFetch(
       `/rest/v1/updates?select=id,team_id,user_id,headline,wins,blockers,next_move,created_at&team_id=eq.${session.teamId}&order=created_at.desc`
+    ),
+    optionalSupabaseFetch(
+      `/rest/v1/comments?select=id,update_id,team_id,author_user_id,author_email,author_role,body,created_at&team_id=eq.${session.teamId}&order=created_at.asc`,
+      []
+    ),
+    optionalSupabaseFetch(
+      `/rest/v1/ideas?select=id,team_id,author_user_id,author_email,author_role,body,created_at&team_id=eq.${session.teamId}&order=created_at.desc`,
+      []
+    ),
+    optionalSupabaseFetch(
+      `/rest/v1/weekly_goals?select=id,team_id,week_start,goal_text,updated_by_email,updated_at&team_id=eq.${session.teamId}&week_start=eq.${weekStart}&order=updated_at.desc`,
+      []
+    ),
+    optionalSupabaseFetch(
+      `/rest/v1/tasks?select=id,team_id,week_start,assignee_name,title,completed,sort_order,created_at,updated_at&team_id=eq.${session.teamId}&week_start=eq.${weekStart}&order=sort_order.asc,created_at.asc`,
+      []
     ),
   ]);
 
@@ -192,19 +249,28 @@ async function loadWorkspace(session) {
     membership,
     memberships,
     updates,
+    comments,
+    ideas,
+    weeklyGoal: weeklyGoals[0] || null,
+    tasks,
+    weekStart,
   };
 }
 
 module.exports = {
   SESSION_MAX_AGE,
+  assertCEO,
   buildExpiredSessionCookie,
   buildSessionCookie,
   ensureMembershipUser,
   findMembership,
   findTeamByCode,
+  founderDisplayNameFromEmail,
+  getCurrentWeekStart,
   getSessionFromRequest,
   json,
   loadWorkspace,
+  optionalSupabaseFetch,
   signSession,
   supabaseFetch,
 };

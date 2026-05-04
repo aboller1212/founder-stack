@@ -1,24 +1,38 @@
 const app = document.querySelector("#app");
 
+const FOUNDERS = [
+  { name: "Alex", email: "alex@forgechallenge.com", role: "CEO" },
+  { name: "Ben", email: "ben@forgechallenge.com", role: "CFO" },
+  { name: "Zach", email: "zach@forgechallenge.com", role: "COO" },
+];
+
+const FEED_ROLES = ["CEO", "COO", "CFO"];
+
 const state = {
   authMessage: "",
   authTone: "info",
+  comments: [],
+  ideas: [],
   membership: null,
   memberships: [],
   session: null,
+  tasks: [],
   team: null,
   updates: [],
+  weekStart: "",
+  weeklyGoal: null,
 };
 
 const updateRoleMap = new Map();
+const updateEmailMap = new Map();
 const rolePrompts = {
   CEO: {
     title: "CEO prompt",
-    summary: "Use this to turn rough founder notes into a tight company-level update.",
+    summary: "Turn rough company notes into a crisp founder-facing operating update.",
     prompt: `Write a concise daily CEO update for my cofounders in plain text only.
 
 Do not use markdown, bullets, tables, or emojis.
-Keep it direct and readable.
+Keep it direct, practical, and easy to scan.
 Start with a line formatted exactly like:
 Title: [short title]
 
@@ -31,11 +45,11 @@ Use this context:
   },
   COO: {
     title: "COO prompt",
-    summary: "Use this to turn execution notes into a clean operating update.",
+    summary: "Turn execution notes into a clean operational update for the team.",
     prompt: `Write a concise daily COO update for my cofounders in plain text only.
 
 Do not use markdown, bullets, tables, or emojis.
-Keep it direct and readable.
+Keep it direct, practical, and easy to scan.
 Start with a line formatted exactly like:
 Title: [short title]
 
@@ -48,16 +62,16 @@ Use this context:
   },
   CFO: {
     title: "CFO prompt",
-    summary: "Use this to turn finance notes into a clean financial update.",
+    summary: "Turn finance notes into a sharp financial update for the founder room.",
     prompt: `Write a concise daily CFO update for my cofounders in plain text only.
 
 Do not use markdown, bullets, tables, or emojis.
-Keep it direct and readable.
+Keep it direct, practical, and easy to scan.
 Start with a line formatted exactly like:
 Title: [short title]
 
 Then leave one blank line and write 2-4 compact paragraphs.
-Focus on cash, numbers, exposure, assumptions, and what matters next.
+Focus on cash, exposure, assumptions, and what matters next.
 Do not add greetings or sign-offs.
 
 Use this context:
@@ -65,11 +79,11 @@ Use this context:
   },
   Founder: {
     title: "Founder prompt",
-    summary: "Use this to turn rough notes into a crisp founder update.",
+    summary: "Turn rough founder notes into a concise plain-text team update.",
     prompt: `Write a concise daily founder update for my cofounders in plain text only.
 
 Do not use markdown, bullets, tables, or emojis.
-Keep it direct and readable.
+Keep it direct, practical, and easy to scan.
 Start with a line formatted exactly like:
 Title: [short title]
 
@@ -82,21 +96,22 @@ Use this context:
   },
 };
 
-function getTodayLocalDate() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+function isCEO() {
+  return state.membership?.role === "CEO";
 }
 
-function formatTime(timestamp) {
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(timestamp));
+function founderNameFromEmail(email) {
+  const match = FOUNDERS.find((person) => person.email === email);
+  if (match) {
+    return match.name;
+  }
+
+  const localPart = (email || "").split("@")[0] || "Founder";
+  return localPart.charAt(0).toUpperCase() + localPart.slice(1);
+}
+
+function founderNameForRole(role) {
+  return FOUNDERS.find((person) => person.role === role)?.name || role;
 }
 
 function escapeHtml(value) {
@@ -108,8 +123,42 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+function formatTime(timestamp) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(timestamp));
+}
+
+function getTodayLocalDate() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function nextPushId() {
   return `push-${String(state.updates.length + 1).padStart(4, "0")}`;
+}
+
+function formatWeekLabel(weekStart) {
+  if (!weekStart) {
+    return "Current founder operating week";
+  }
+
+  const start = new Date(`${weekStart}T00:00:00`);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+
+  const formatter = new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+
+  return `Week of ${formatter.format(start)} to ${formatter.format(end)}`;
 }
 
 function renderStatus(container, message, tone = "info") {
@@ -141,95 +190,6 @@ async function api(path, options = {}) {
   }
 
   return payload;
-}
-
-async function fetchWorkspace() {
-  try {
-    const payload = await api("/api/workspace", { method: "GET" });
-    state.session = payload.session;
-    state.team = payload.team;
-    state.membership = payload.membership;
-    state.memberships = payload.memberships || [];
-    state.updates = payload.updates || [];
-    state.authMessage = "";
-    state.authTone = "info";
-
-    updateRoleMap.clear();
-    state.memberships.forEach((member) => {
-      if (member.user_id) {
-        updateRoleMap.set(member.user_id, member.role);
-      }
-    });
-  } catch (error) {
-    state.session = null;
-    state.team = null;
-    state.membership = null;
-    state.memberships = [];
-    state.updates = [];
-  }
-}
-
-async function signIn(email, teamCode) {
-  try {
-    const payload = await api("/api/session", {
-      method: "POST",
-      body: JSON.stringify({ email, teamCode }),
-    });
-
-    state.session = payload.session;
-    state.authMessage = "";
-    await fetchWorkspace();
-    render();
-  } catch (error) {
-    state.authMessage = error.message;
-    state.authTone = "error";
-    render();
-  }
-}
-
-async function signOut() {
-  try {
-    await api("/api/session", { method: "DELETE" });
-  } catch {
-    // Clear local state even if the cookie is already gone.
-  }
-
-  state.session = null;
-  state.membership = null;
-  state.memberships = [];
-  state.team = null;
-  state.updates = [];
-  state.authMessage = "";
-  render();
-}
-
-async function addUpdate(formData) {
-  if (!state.membership || !state.session) {
-    return;
-  }
-
-  const aiDraft = String(formData.get("aiDraft")).trim();
-  const typedHeadline = String(formData.get("headline")).trim();
-  const parsedDraft = parseAIDraft(aiDraft, state.membership.role);
-  const payload = {
-    aiDraft: parsedDraft.body,
-    headline: typedHeadline || parsedDraft.headline,
-  };
-
-  try {
-    await api("/api/updates", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-
-    state.authMessage = "";
-    await fetchWorkspace();
-    render();
-  } catch (error) {
-    state.authMessage = error.message;
-    state.authTone = "error";
-    render();
-  }
 }
 
 function getPromptForRole(role) {
@@ -278,6 +238,245 @@ function parseAIDraft(text, role) {
   };
 }
 
+function commentsByUpdateId() {
+  return state.comments.reduce((map, comment) => {
+    if (!map[comment.update_id]) {
+      map[comment.update_id] = [];
+    }
+
+    map[comment.update_id].push(comment);
+    return map;
+  }, {});
+}
+
+function tasksByAssignee() {
+  return FOUNDERS.reduce((map, founder) => {
+    map[founder.name] = state.tasks.filter((task) => task.assignee_name === founder.name);
+    return map;
+  }, {});
+}
+
+function roleForUpdate(update) {
+  return updateRoleMap.get(update.user_id) || "Founder";
+}
+
+function emailForUpdate(update) {
+  return updateEmailMap.get(update.user_id) || "";
+}
+
+async function fetchWorkspace() {
+  try {
+    const payload = await api("/api/workspace", { method: "GET" });
+    state.session = payload.session;
+    state.team = payload.team;
+    state.membership = payload.membership;
+    state.memberships = payload.memberships || [];
+    state.updates = payload.updates || [];
+    state.comments = payload.comments || [];
+    state.ideas = payload.ideas || [];
+    state.tasks = payload.tasks || [];
+    state.weekStart = payload.weekStart || "";
+    state.weeklyGoal = payload.weeklyGoal || null;
+    state.authMessage = "";
+    state.authTone = "info";
+
+    updateRoleMap.clear();
+    updateEmailMap.clear();
+    state.memberships.forEach((member) => {
+      if (member.user_id) {
+        updateRoleMap.set(member.user_id, member.role);
+        updateEmailMap.set(member.user_id, member.email);
+      }
+    });
+  } catch {
+    state.session = null;
+    state.team = null;
+    state.membership = null;
+    state.memberships = [];
+    state.updates = [];
+    state.comments = [];
+    state.ideas = [];
+    state.tasks = [];
+    state.weekStart = "";
+    state.weeklyGoal = null;
+  }
+}
+
+async function signIn(email, teamCode) {
+  try {
+    const payload = await api("/api/session", {
+      method: "POST",
+      body: JSON.stringify({ email, teamCode }),
+    });
+
+    state.session = payload.session;
+    state.authMessage = "";
+    await fetchWorkspace();
+    render();
+  } catch (error) {
+    state.authMessage = error.message;
+    state.authTone = "error";
+    render();
+  }
+}
+
+async function signOut() {
+  try {
+    await api("/api/session", { method: "DELETE" });
+  } catch {
+    // Ignore and clear local state anyway.
+  }
+
+  state.authMessage = "";
+  state.authTone = "info";
+  state.session = null;
+  state.membership = null;
+  state.memberships = [];
+  state.team = null;
+  state.updates = [];
+  state.comments = [];
+  state.ideas = [];
+  state.tasks = [];
+  state.weekStart = "";
+  state.weeklyGoal = null;
+  render();
+}
+
+async function addUpdate(formData) {
+  if (!state.membership || !state.session) {
+    return;
+  }
+
+  const aiDraft = String(formData.get("aiDraft")).trim();
+  const typedHeadline = String(formData.get("headline")).trim();
+  const parsedDraft = parseAIDraft(aiDraft, state.membership.role);
+
+  try {
+    await api("/api/updates", {
+      method: "POST",
+      body: JSON.stringify({
+        aiDraft: parsedDraft.body,
+        headline: typedHeadline || parsedDraft.headline,
+      }),
+    });
+
+    state.authMessage = "Update pushed to the founder feed.";
+    state.authTone = "success";
+    await fetchWorkspace();
+    render();
+  } catch (error) {
+    state.authMessage = error.message;
+    state.authTone = "error";
+    render();
+  }
+}
+
+async function saveWeeklyGoal(goalText) {
+  try {
+    await api("/api/weekly-goal", {
+      method: "POST",
+      body: JSON.stringify({ goalText }),
+    });
+
+    state.authMessage = "Weekly goal saved.";
+    state.authTone = "success";
+    await fetchWorkspace();
+    render();
+  } catch (error) {
+    state.authMessage = error.message;
+    state.authTone = "error";
+    render();
+  }
+}
+
+async function addTask(assigneeName, title) {
+  try {
+    await api("/api/tasks", {
+      method: "POST",
+      body: JSON.stringify({ assigneeName, title }),
+    });
+
+    state.authMessage = `${assigneeName}'s task list updated.`;
+    state.authTone = "success";
+    await fetchWorkspace();
+    render();
+  } catch (error) {
+    state.authMessage = error.message;
+    state.authTone = "error";
+    render();
+  }
+}
+
+async function patchTask(taskId, patch) {
+  try {
+    await api("/api/tasks", {
+      method: "PATCH",
+      body: JSON.stringify({ taskId, ...patch }),
+    });
+
+    await fetchWorkspace();
+    render();
+  } catch (error) {
+    state.authMessage = error.message;
+    state.authTone = "error";
+    render();
+  }
+}
+
+async function deleteTask(taskId) {
+  try {
+    await api("/api/tasks", {
+      method: "DELETE",
+      body: JSON.stringify({ taskId }),
+    });
+
+    state.authMessage = "Task removed.";
+    state.authTone = "success";
+    await fetchWorkspace();
+    render();
+  } catch (error) {
+    state.authMessage = error.message;
+    state.authTone = "error";
+    render();
+  }
+}
+
+async function addIdea(body) {
+  try {
+    await api("/api/ideas", {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    });
+
+    state.authMessage = "Idea added to the board.";
+    state.authTone = "success";
+    await fetchWorkspace();
+    render();
+  } catch (error) {
+    state.authMessage = error.message;
+    state.authTone = "error";
+    render();
+  }
+}
+
+async function addComment(updateId, body) {
+  try {
+    await api("/api/comments", {
+      method: "POST",
+      body: JSON.stringify({ updateId, body }),
+    });
+
+    state.authMessage = "Comment added.";
+    state.authTone = "success";
+    await fetchWorkspace();
+    render();
+  } catch (error) {
+    state.authMessage = error.message;
+    state.authTone = "error";
+    render();
+  }
+}
+
 function exportJson() {
   if (!state.team) {
     return;
@@ -288,8 +487,13 @@ function exportJson() {
       JSON.stringify(
         {
           team: state.team,
+          weekStart: state.weekStart,
+          weeklyGoal: state.weeklyGoal,
           members: state.memberships,
+          tasks: state.tasks,
+          ideas: state.ideas,
           updates: state.updates,
+          comments: state.comments,
         },
         null,
         2
@@ -325,40 +529,172 @@ function renderAuth() {
   });
 }
 
-function renderHistory() {
-  const historyList = document.querySelector("#history-list");
+function renderTaskColumns() {
+  const groupedTasks = tasksByAssignee();
 
-  if (state.updates.length === 0) {
-    historyList.innerHTML = `
-      <div class="history-empty">
-        No pushes yet. Your first founder update will land here as an immutable
-        log entry.
-      </div>
-    `;
+  FOUNDERS.forEach((founder) => {
+    const list = document.querySelector(`#tasks-${founder.name.toLowerCase()}`);
+    const tasks = groupedTasks[founder.name] || [];
+
+    if (tasks.length === 0) {
+      list.innerHTML = `<div class="empty-chip">No tasks yet.</div>`;
+    } else {
+      list.innerHTML = tasks
+        .map(
+          (task) => `
+            <article class="task-item ${task.completed ? "is-complete" : ""}" data-task-id="${task.id}">
+              <label class="task-check">
+                <input type="checkbox" ${task.completed ? "checked" : ""} ${isCEO() ? "" : "disabled"} />
+                <span>${escapeHtml(task.title)}</span>
+              </label>
+              ${isCEO() ? '<button class="task-delete" type="button">Remove</button>' : ""}
+            </article>
+          `
+        )
+        .join("");
+    }
+
+    list.querySelectorAll(".task-item").forEach((taskElement) => {
+      const taskId = taskElement.dataset.taskId;
+      const checkbox = taskElement.querySelector('input[type="checkbox"]');
+      const deleteButton = taskElement.querySelector(".task-delete");
+
+      if (checkbox && isCEO()) {
+        checkbox.addEventListener("change", () => {
+          void patchTask(taskId, { completed: checkbox.checked });
+        });
+      }
+
+      if (deleteButton) {
+        deleteButton.addEventListener("click", () => {
+          void deleteTask(taskId);
+        });
+      }
+    });
+  });
+
+  document.querySelectorAll(".task-form").forEach((form) => {
+    if (!isCEO()) {
+      form.classList.add("is-hidden");
+      return;
+    }
+
+    form.classList.remove("is-hidden");
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const formData = new FormData(form);
+      const title = String(formData.get("taskTitle")).trim();
+      if (!title) {
+        return;
+      }
+
+      void addTask(form.dataset.assignee, title);
+      form.reset();
+    });
+  });
+}
+
+function renderIdeas() {
+  const ideasList = document.querySelector("#ideas-list");
+
+  if (state.ideas.length === 0) {
+    ideasList.innerHTML = `<div class="history-empty">No ideas yet. Drop the first one into the board.</div>`;
     return;
   }
 
-  historyList.innerHTML = state.updates
-    .map((update, index) => {
-      const role = updateRoleMap.get(update.user_id) || update.author_role || "Founder";
-      const authorEmail = update.author_email || state.memberships.find((member) => member.user_id === update.user_id)?.email || "";
-
-      return `
-        <article class="history-entry">
-          <div class="entry-meta">
-            <span class="entry-id">push-${String(state.updates.length - index).padStart(4, "0")}</span>
-            <div class="entry-author">${escapeHtml(role)}</div>
-            <div class="entry-time">${escapeHtml(authorEmail)}</div>
-            <div class="entry-time">${escapeHtml(update.created_at ? formatTime(update.created_at) : "")}</div>
+  ideasList.innerHTML = state.ideas
+    .map(
+      (idea) => `
+        <article class="idea-card">
+          <div class="idea-meta">
+            <strong>${escapeHtml(idea.author_role)}</strong>
+            <span>${escapeHtml(founderNameFromEmail(idea.author_email))}</span>
+            <span>${escapeHtml(formatTime(idea.created_at))}</span>
           </div>
-          <div class="entry-copy">
-            <h4>${escapeHtml(update.headline)}</h4>
-            <div class="entry-note">${escapeHtml(update.wins)}</div>
-          </div>
+          <div class="entry-note">${escapeHtml(idea.body)}</div>
         </article>
-      `;
-    })
+      `
+    )
     .join("");
+}
+
+function renderFeedColumns() {
+  const commentGroups = commentsByUpdateId();
+  const groupedUpdates = FEED_ROLES.reduce((map, role) => {
+    map[role] = state.updates.filter((update) => roleForUpdate(update) === role);
+    return map;
+  }, {});
+
+  FEED_ROLES.forEach((role) => {
+    const feed = document.querySelector(`#feed-${role.toLowerCase()}`);
+    const updates = groupedUpdates[role] || [];
+
+    if (updates.length === 0) {
+      feed.innerHTML = `<div class="history-empty">No ${role} updates yet.</div>`;
+      return;
+    }
+
+    feed.innerHTML = updates
+      .map((update) => {
+        const comments = commentGroups[update.id] || [];
+        return `
+          <article class="feed-card" data-update-id="${update.id}">
+            <div class="feed-card-head">
+              <div>
+                <span class="entry-id">${escapeHtml(role)}</span>
+                <h4>${escapeHtml(update.headline)}</h4>
+              </div>
+              <div class="feed-meta">
+                <span>${escapeHtml(founderNameFromEmail(emailForUpdate(update)))}</span>
+                <span>${escapeHtml(formatTime(update.created_at))}</span>
+              </div>
+            </div>
+            <div class="entry-note">${escapeHtml(update.wins)}</div>
+            <div class="comment-thread">
+              <div class="comment-list">
+                ${
+                  comments.length
+                    ? comments
+                        .map(
+                          (comment) => `
+                            <div class="comment-item">
+                              <div class="comment-meta">
+                                <strong>${escapeHtml(comment.author_role)}</strong>
+                                <span>${escapeHtml(founderNameFromEmail(comment.author_email))}</span>
+                                <span>${escapeHtml(formatTime(comment.created_at))}</span>
+                              </div>
+                              <div class="comment-body">${escapeHtml(comment.body)}</div>
+                            </div>
+                          `
+                        )
+                        .join("")
+                    : '<div class="empty-chip">No comments yet.</div>'
+                }
+              </div>
+              <form class="comment-form" data-update-id="${update.id}">
+                <textarea name="commentBody" rows="2" placeholder="Add a comment"></textarea>
+                <button type="submit">Comment</button>
+              </form>
+            </div>
+          </article>
+        `;
+      })
+      .join("");
+  });
+
+  document.querySelectorAll(".comment-form").forEach((form) => {
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const formData = new FormData(form);
+      const body = String(formData.get("commentBody")).trim();
+      if (!body) {
+        return;
+      }
+
+      void addComment(form.dataset.updateId, body);
+      form.reset();
+    });
+  });
 }
 
 function renderWorkspace() {
@@ -371,20 +707,40 @@ function renderWorkspace() {
   app.replaceChildren(template.content.cloneNode(true));
 
   document.querySelector("#team-name").textContent = state.team.name;
-  document.querySelector("#member-summary").textContent = `${state.membership.role} • ${state.membership.email}`;
+  document.querySelector("#member-summary").textContent = `${state.membership.role} • ${founderNameFromEmail(state.membership.email)}`;
+  document.querySelector("#week-label").textContent = formatWeekLabel(state.weekStart);
   document.querySelector("#push-count").textContent = String(state.updates.length);
   document.querySelector("#today-count").textContent = String(
     state.updates.filter((entry) => entry.created_at?.slice(0, 10) === getTodayLocalDate()).length
   );
   document.querySelector("#member-count").textContent = String(state.memberships.length);
   document.querySelector("#next-push-id").textContent = nextPushId();
+  document.querySelector("#ceo-owner").textContent = founderNameForRole("CEO");
+  document.querySelector("#coo-owner").textContent = founderNameForRole("COO");
+  document.querySelector("#cfo-owner").textContent = founderNameForRole("CFO");
 
   const workspaceFeedback = document.querySelector("#workspace-feedback");
   renderStatus(workspaceFeedback, state.authMessage, state.authTone);
-  renderHistory();
+
+  const weeklyGoalInput = document.querySelector("#weekly-goal-input");
+  weeklyGoalInput.value = state.weeklyGoal?.goal_text || "";
+  weeklyGoalInput.disabled = !isCEO();
+
+  const saveGoalButton = document.querySelector("#save-goal");
+  if (!isCEO()) {
+    saveGoalButton.classList.add("is-hidden");
+  } else {
+    saveGoalButton.addEventListener("click", () => {
+      void saveWeeklyGoal(weeklyGoalInput.value);
+    });
+  }
+
+  renderTaskColumns();
+  renderIdeas();
+  renderFeedColumns();
 
   const promptConfig = getPromptForRole(state.membership.role);
-  document.querySelector("#prompt-role-title").textContent = `${state.membership.role} daily update`;
+  document.querySelector("#prompt-role-title").textContent = `${state.membership.role} update capture`;
   document.querySelector("#prompt-role-summary").textContent = promptConfig.summary;
   document.querySelector("#prompt-label").textContent = promptConfig.title;
   document.querySelector("#prompt-script").value = promptConfig.prompt;
@@ -405,6 +761,7 @@ function renderWorkspace() {
   document.querySelector("#sign-out").addEventListener("click", () => {
     void signOut();
   });
+
   document.querySelector("#export-json").addEventListener("click", exportJson);
 
   const updateForm = document.querySelector("#update-form");
@@ -458,6 +815,19 @@ function renderWorkspace() {
 
     void addUpdate(formData);
     updateForm.reset();
+  });
+
+  const ideaForm = document.querySelector("#idea-form");
+  ideaForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const formData = new FormData(ideaForm);
+    const body = String(formData.get("ideaBody")).trim();
+    if (!body) {
+      return;
+    }
+
+    void addIdea(body);
+    ideaForm.reset();
   });
 }
 
