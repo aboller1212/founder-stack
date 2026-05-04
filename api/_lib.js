@@ -210,7 +210,7 @@ async function ensureMembershipUser(membership) {
 async function loadWorkspace(session) {
   const weekStart = getCurrentWeekStart();
 
-  const [teamRows, memberships, updates, comments, ideas, weeklyGoals, tasks] = await Promise.all([
+  const [teamRows, memberships, updates, comments, ideas, ideaComments, weeklyGoals, tasks] = await Promise.all([
     supabaseFetch(`/rest/v1/teams?select=id,name,created_at&id=eq.${session.teamId}`),
     supabaseFetch(
       `/rest/v1/memberships?select=id,email,role,user_id,created_at&team_id=eq.${session.teamId}&order=created_at.asc`
@@ -223,7 +223,11 @@ async function loadWorkspace(session) {
       []
     ),
     optionalSupabaseFetch(
-      `/rest/v1/ideas?select=id,team_id,author_user_id,author_email,author_role,body,created_at&team_id=eq.${session.teamId}&order=created_at.desc`,
+      `/rest/v1/ideas?select=id,team_id,author_user_id,author_email,author_role,body,status,status_updated_at,status_updated_by_email,created_at&team_id=eq.${session.teamId}&order=created_at.desc`,
+      []
+    ),
+    optionalSupabaseFetch(
+      `/rest/v1/idea_comments?select=id,idea_id,team_id,author_user_id,author_email,author_role,body,created_at&team_id=eq.${session.teamId}&order=created_at.asc`,
       []
     ),
     optionalSupabaseFetch(
@@ -251,6 +255,7 @@ async function loadWorkspace(session) {
     updates,
     comments,
     ideas,
+    ideaComments,
     weeklyGoal: weeklyGoals[0] || null,
     tasks,
     weekStart,

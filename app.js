@@ -13,6 +13,7 @@ const state = {
   authTone: "info",
   comments: [],
   ideas: [],
+  ideaComments: [],
   membership: null,
   memberships: [],
   session: null,
@@ -21,6 +22,7 @@ const state = {
   updates: [],
   weekStart: "",
   weeklyGoal: null,
+  openIdeaCommentThreads: new Set(),
   openCommentThreads: new Set(),
 };
 
@@ -290,11 +292,32 @@ function commentsByUpdateId() {
   }, {});
 }
 
+function commentsByIdeaId() {
+  return state.ideaComments.reduce((map, comment) => {
+    if (!map[comment.idea_id]) {
+      map[comment.idea_id] = [];
+    }
+
+    map[comment.idea_id].push(comment);
+    return map;
+  }, {});
+}
+
 function toggleCommentThread(updateId) {
   if (state.openCommentThreads.has(updateId)) {
     state.openCommentThreads.delete(updateId);
   } else {
     state.openCommentThreads.add(updateId);
+  }
+
+  renderWorkspace();
+}
+
+function toggleIdeaCommentThread(ideaId) {
+  if (state.openIdeaCommentThreads.has(ideaId)) {
+    state.openIdeaCommentThreads.delete(ideaId);
+  } else {
+    state.openIdeaCommentThreads.add(ideaId);
   }
 
   renderWorkspace();
@@ -325,6 +348,7 @@ async function fetchWorkspace() {
     state.updates = payload.updates || [];
     state.comments = payload.comments || [];
     state.ideas = payload.ideas || [];
+    state.ideaComments = payload.ideaComments || [];
     state.tasks = payload.tasks || [];
     state.weekStart = payload.weekStart || "";
     state.weeklyGoal = payload.weeklyGoal || null;
@@ -347,6 +371,7 @@ async function fetchWorkspace() {
     state.updates = [];
     state.comments = [];
     state.ideas = [];
+    state.ideaComments = [];
     state.tasks = [];
     state.weekStart = "";
     state.weeklyGoal = null;
@@ -387,9 +412,12 @@ async function signOut() {
   state.updates = [];
   state.comments = [];
   state.ideas = [];
+  state.ideaComments = [];
   state.tasks = [];
   state.weekStart = "";
   state.weeklyGoal = null;
+  state.openIdeaCommentThreads.clear();
+  state.openCommentThreads.clear();
   render();
 }
 
@@ -517,7 +545,49 @@ async function deleteIdea(ideaId) {
       body: JSON.stringify({ ideaId }),
     });
 
+    state.openIdeaCommentThreads.delete(ideaId);
     state.authMessage = "Idea removed.";
+    state.authTone = "success";
+    await fetchWorkspace();
+    render();
+  } catch (error) {
+    state.authMessage = error.message;
+    state.authTone = "error";
+    render();
+  }
+}
+
+async function setIdeaStatus(ideaId, status) {
+  try {
+    await api("/api/ideas", {
+      method: "PATCH",
+      body: JSON.stringify({ ideaId, status }),
+    });
+
+    state.authMessage =
+      status === "implemented"
+        ? "Idea marked implemented."
+        : status === "rejected"
+          ? "Idea marked rejected."
+          : "Idea returned to pending.";
+    state.authTone = "success";
+    await fetchWorkspace();
+    render();
+  } catch (error) {
+    state.authMessage = error.message;
+    state.authTone = "error";
+    render();
+  }
+}
+
+async function addIdeaComment(ideaId, body) {
+  try {
+    await api("/api/idea-comments", {
+      method: "POST",
+      body: JSON.stringify({ ideaId, body }),
+    });
+
+    state.authMessage = "Idea comment added.";
     state.authTone = "success";
     await fetchWorkspace();
     render();
@@ -580,6 +650,7 @@ function exportJson() {
           members: state.memberships,
           tasks: state.tasks,
           ideas: state.ideas,
+          ideaComments: state.ideaComments,
           updates: state.updates,
           comments: state.comments,
         },
@@ -684,6 +755,7 @@ function renderTaskColumns() {
 
 function renderIdeas() {
   const ideasList = document.querySelector("#ideas-list");
+  const ideaCommentGroups = commentsByIdeaId();
 
   if (state.ideas.length === 0) {
     ideasList.innerHTML = `<div class="history-empty">No ideas yet. Drop the first one into the board.</div>`;
@@ -692,23 +764,78 @@ function renderIdeas() {
 
   ideasList.innerHTML = state.ideas
     .map(
-      (idea) => `
-        <article class="idea-card" data-idea-id="${idea.id}">
+      (idea) => {
+        const comments = ideaCommentGroups[idea.id] || [];
+        const isOpen = state.openIdeaCommentThreads.has(idea.id);
+        const nextImplementedStatus = idea.status === "implemented" ? "pending" : "implemented";
+        const nextRejectedStatus = idea.status === "rejected" ? "pending" : "rejected";
+
+        return `
+        <article class="idea-card idea-card--${escapeHtml(idea.status || "pending")}" data-idea-id="${idea.id}">
           <div class="feed-card-head">
             <div class="compact-meta">
               <span class="entry-id compact">${escapeHtml(idea.author_role)}</span>
               <span>${escapeHtml(founderNameFromEmail(idea.author_email))}</span>
               <span>${escapeHtml(formatTime(idea.created_at))}</span>
             </div>
+            <span class="idea-status-chip">${escapeHtml(idea.status || "pending")}</span>
+          </div>
+          <div class="entry-note">${escapeHtml(idea.body)}</div>
+          <div class="idea-action-row">
+            <button
+              class="inline-chip ${idea.status === "implemented" ? "is-active" : ""}"
+              type="button"
+              data-idea-action="implemented"
+              data-next-status="${nextImplementedStatus}"
+            >
+              Implemented
+            </button>
+            <button
+              class="inline-chip inline-chip--danger ${idea.status === "rejected" ? "is-active" : ""}"
+              type="button"
+              data-idea-action="rejected"
+              data-next-status="${nextRejectedStatus}"
+            >
+              Reject
+            </button>
+            <button class="comment-toggle ghost-button" type="button" data-idea-toggle="${idea.id}">
+              Comments (${comments.length})
+            </button>
             ${
               canDeleteIdea(idea)
                 ? '<button class="inline-delete" type="button">Delete</button>'
                 : ""
             }
           </div>
-          <div class="entry-note">${escapeHtml(idea.body)}</div>
+          <div class="comment-thread ${isOpen ? "is-open" : ""}">
+            <div class="comment-list">
+              ${
+                comments.length
+                  ? comments
+                      .map(
+                        (comment) => `
+                          <div class="comment-item">
+                            <div class="compact-meta">
+                              <strong>${escapeHtml(comment.author_role)}</strong>
+                              <span>${escapeHtml(founderNameFromEmail(comment.author_email))}</span>
+                              <span>${escapeHtml(formatTime(comment.created_at))}</span>
+                            </div>
+                            <div class="comment-body">${escapeHtml(comment.body)}</div>
+                          </div>
+                        `
+                      )
+                      .join("")
+                  : '<div class="empty-chip">No comments yet.</div>'
+              }
+            </div>
+            <form class="comment-form idea-comment-form" data-idea-id="${idea.id}">
+              <textarea name="ideaCommentBody" rows="2" placeholder="Add a comment"></textarea>
+              <button type="submit">Comment</button>
+            </form>
+          </div>
         </article>
-      `
+      `;
+      }
     )
     .join("");
 
@@ -718,6 +845,37 @@ function renderIdeas() {
       if (ideaId) {
         void deleteIdea(ideaId);
       }
+    });
+  });
+
+  ideasList.querySelectorAll("[data-idea-action]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const ideaId = button.closest(".idea-card")?.dataset.ideaId;
+      const nextStatus = button.dataset.nextStatus;
+      if (ideaId && nextStatus) {
+        void setIdeaStatus(ideaId, nextStatus);
+      }
+    });
+  });
+
+  ideasList.querySelectorAll("[data-idea-toggle]").forEach((button) => {
+    button.addEventListener("click", () => {
+      toggleIdeaCommentThread(button.dataset.ideaToggle);
+    });
+  });
+
+  ideasList.querySelectorAll(".idea-comment-form").forEach((form) => {
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const formData = new FormData(form);
+      const body = String(formData.get("ideaCommentBody")).trim();
+      if (!body) {
+        return;
+      }
+
+      state.openIdeaCommentThreads.add(form.dataset.ideaId);
+      void addIdeaComment(form.dataset.ideaId, body);
+      form.reset();
     });
   });
 }

@@ -273,6 +273,16 @@ h4 {
   gap: 8px;
 }
 
+.idea-card--implemented {
+  background: rgba(33, 77, 66, 0.12);
+  border-color: rgba(33, 77, 66, 0.24);
+}
+
+.idea-card--rejected {
+  background: rgba(181, 82, 51, 0.1);
+  border-color: rgba(181, 82, 51, 0.22);
+}
+
 .capture-grid {
   grid-template-columns: minmax(0, 0.92fr) minmax(420px, 1.08fr);
   align-items: start;
@@ -525,6 +535,53 @@ button:hover {
   gap: 8px;
 }
 
+.idea-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.idea-status-chip,
+.inline-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--muted);
+  box-shadow: none;
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: capitalize;
+}
+
+.inline-chip {
+  cursor: pointer;
+}
+
+.inline-chip:hover {
+  transform: none;
+}
+
+.inline-chip.is-active,
+.idea-card--implemented .idea-status-chip {
+  background: rgba(33, 77, 66, 0.14);
+  border-color: rgba(33, 77, 66, 0.26);
+  color: var(--forest);
+}
+
+.inline-chip--danger.is-active,
+.idea-card--rejected .idea-status-chip {
+  background: rgba(181, 82, 51, 0.12);
+  border-color: rgba(181, 82, 51, 0.24);
+  color: var(--accent);
+}
+
 .compact-meta {
   display: flex;
   flex-wrap: wrap;
@@ -586,6 +643,18 @@ button:hover {
   background: rgba(181, 82, 51, 0.08);
 }
 
+.idea-card .comment-thread {
+  gap: 8px;
+}
+
+.idea-card .comment-form textarea {
+  min-height: 56px;
+}
+
+.idea-card .comment-form button {
+  padding: 8px 12px;
+}
+
 .comment-thread {
   display: none;
 }
@@ -631,6 +700,7 @@ button:hover {
 
 .ideas-panel .stack-form {
   gap: 8px;
+  margin-bottom: 6px;
 }
 
 .ideas-panel .stack-form textarea {
@@ -649,6 +719,7 @@ button:hover {
   align-content: start;
   min-height: 0;
   overflow-y: auto;
+  padding-top: 10px;
   padding-right: 6px;
   padding-bottom: 10px;
   gap: 12px;

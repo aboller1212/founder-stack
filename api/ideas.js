@@ -1,7 +1,7 @@
 const { getSessionFromRequest, json, supabaseFetch } = require("./_lib");
 
 module.exports = async function handler(request, response) {
-  if (!["POST", "DELETE"].includes(request.method)) {
+  if (!["POST", "PATCH", "DELETE"].includes(request.method)) {
     return json(response, 405, { error: "Method not allowed." });
   }
 
@@ -11,6 +11,37 @@ module.exports = async function handler(request, response) {
   }
 
   try {
+    if (request.method === "PATCH") {
+      const { ideaId, status } = request.body || {};
+
+      if (!ideaId || !["pending", "implemented", "rejected"].includes(status)) {
+        return json(response, 400, { error: "Idea id and valid status are required." });
+      }
+
+      const rows = await supabaseFetch(
+        `/rest/v1/ideas?select=id,team_id&id=eq.${encodeURIComponent(ideaId)}&team_id=eq.${session.teamId}`
+      );
+      const idea = rows[0];
+
+      if (!idea) {
+        return json(response, 404, { error: "Idea not found." });
+      }
+
+      await supabaseFetch(`/rest/v1/ideas?id=eq.${encodeURIComponent(ideaId)}&team_id=eq.${session.teamId}`, {
+        method: "PATCH",
+        headers: {
+          Prefer: "return=minimal",
+        },
+        body: JSON.stringify({
+          status,
+          status_updated_at: new Date().toISOString(),
+          status_updated_by_email: session.email,
+        }),
+      });
+
+      return json(response, 200, { ok: true });
+    }
+
     if (request.method === "DELETE") {
       const { ideaId } = request.body || {};
 
