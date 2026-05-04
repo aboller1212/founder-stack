@@ -452,6 +452,12 @@ button:hover {
   color: var(--muted);
 }
 
+.feed-actions {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
 .compact-meta {
   display: flex;
   flex-wrap: wrap;
@@ -495,6 +501,22 @@ button:hover {
   padding: 8px 12px;
   border-radius: 999px;
   font-size: 0.82rem;
+}
+
+.inline-delete {
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid rgba(181, 82, 51, 0.22);
+  box-shadow: none;
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.inline-delete:hover {
+  transform: none;
+  background: rgba(181, 82, 51, 0.08);
 }
 
 .comment-thread {

@@ -1,7 +1,7 @@
 const { getSessionFromRequest, json, supabaseFetch } = require("./_lib");
 
 module.exports = async function handler(request, response) {
-  if (request.method !== "POST") {
+  if (!["POST", "DELETE"].includes(request.method)) {
     return json(response, 405, { error: "Method not allowed." });
   }
 
@@ -11,6 +11,41 @@ module.exports = async function handler(request, response) {
   }
 
   try {
+    if (request.method === "DELETE") {
+      const { ideaId } = request.body || {};
+
+      if (!ideaId) {
+        return json(response, 400, { error: "Idea id is required." });
+      }
+
+      const rows = await supabaseFetch(
+        `/rest/v1/ideas?select=id,team_id,author_user_id,author_email&id=eq.${encodeURIComponent(ideaId)}&team_id=eq.${session.teamId}`
+      );
+      const idea = rows[0];
+
+      if (!idea) {
+        return json(response, 404, { error: "Idea not found." });
+      }
+
+      const canDelete =
+        session.role === "CEO" ||
+        idea.author_user_id === session.userId ||
+        idea.author_email?.toLowerCase() === session.email.toLowerCase();
+
+      if (!canDelete) {
+        return json(response, 403, { error: "You can only delete your own ideas." });
+      }
+
+      await supabaseFetch(`/rest/v1/ideas?id=eq.${encodeURIComponent(ideaId)}&team_id=eq.${session.teamId}`, {
+        method: "DELETE",
+        headers: {
+          Prefer: "return=minimal",
+        },
+      });
+
+      return json(response, 200, { ok: true });
+    }
+
     const { body } = request.body || {};
 
     if (!body) {

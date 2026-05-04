@@ -1,7 +1,7 @@
 const { getSessionFromRequest, json, supabaseFetch } = require("./_lib");
 
 module.exports = async function handler(request, response) {
-  if (request.method !== "POST") {
+  if (!["POST", "DELETE"].includes(request.method)) {
     return json(response, 405, { error: "Method not allowed." });
   }
 
@@ -11,6 +11,38 @@ module.exports = async function handler(request, response) {
   }
 
   try {
+    if (request.method === "DELETE") {
+      const { updateId } = request.body || {};
+
+      if (!updateId) {
+        return json(response, 400, { error: "Update id is required." });
+      }
+
+      const rows = await supabaseFetch(
+        `/rest/v1/updates?select=id,team_id,user_id&id=eq.${encodeURIComponent(updateId)}&team_id=eq.${session.teamId}`
+      );
+      const update = rows[0];
+
+      if (!update) {
+        return json(response, 404, { error: "Update not found." });
+      }
+
+      const canDelete = session.role === "CEO" || update.user_id === session.userId;
+
+      if (!canDelete) {
+        return json(response, 403, { error: "You can only delete your own updates." });
+      }
+
+      await supabaseFetch(`/rest/v1/updates?id=eq.${encodeURIComponent(updateId)}&team_id=eq.${session.teamId}`, {
+        method: "DELETE",
+        headers: {
+          Prefer: "return=minimal",
+        },
+      });
+
+      return json(response, 200, { ok: true });
+    }
+
     const { aiDraft, headline } = request.body || {};
 
     if (!aiDraft || !headline) {

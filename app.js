@@ -470,6 +470,24 @@ async function addIdea(body) {
   }
 }
 
+async function deleteIdea(ideaId) {
+  try {
+    await api("/api/ideas", {
+      method: "DELETE",
+      body: JSON.stringify({ ideaId }),
+    });
+
+    state.authMessage = "Idea removed.";
+    state.authTone = "success";
+    await fetchWorkspace();
+    render();
+  } catch (error) {
+    state.authMessage = error.message;
+    state.authTone = "error";
+    render();
+  }
+}
+
 async function addComment(updateId, body) {
   try {
     await api("/api/comments", {
@@ -478,6 +496,25 @@ async function addComment(updateId, body) {
     });
 
     state.authMessage = "Comment added.";
+    state.authTone = "success";
+    await fetchWorkspace();
+    render();
+  } catch (error) {
+    state.authMessage = error.message;
+    state.authTone = "error";
+    render();
+  }
+}
+
+async function deleteUpdate(updateId) {
+  try {
+    await api("/api/updates", {
+      method: "DELETE",
+      body: JSON.stringify({ updateId }),
+    });
+
+    state.openCommentThreads.delete(updateId);
+    state.authMessage = "Update deleted.";
     state.authTone = "success";
     await fetchWorkspace();
     render();
@@ -616,17 +653,33 @@ function renderIdeas() {
   ideasList.innerHTML = state.ideas
     .map(
       (idea) => `
-        <article class="idea-card">
-          <div class="compact-meta">
-            <span class="entry-id compact">${escapeHtml(idea.author_role)}</span>
-            <span>${escapeHtml(founderNameFromEmail(idea.author_email))}</span>
-            <span>${escapeHtml(formatTime(idea.created_at))}</span>
+        <article class="idea-card" data-idea-id="${idea.id}">
+          <div class="feed-card-head">
+            <div class="compact-meta">
+              <span class="entry-id compact">${escapeHtml(idea.author_role)}</span>
+              <span>${escapeHtml(founderNameFromEmail(idea.author_email))}</span>
+              <span>${escapeHtml(formatTime(idea.created_at))}</span>
+            </div>
+            ${
+              canDeleteIdea(idea)
+                ? '<button class="inline-delete" type="button">Delete</button>'
+                : ""
+            }
           </div>
           <div class="entry-note">${escapeHtml(idea.body)}</div>
         </article>
       `
     )
     .join("");
+
+  ideasList.querySelectorAll(".idea-card .inline-delete").forEach((button) => {
+    button.addEventListener("click", () => {
+      const ideaId = button.closest(".idea-card")?.dataset.ideaId;
+      if (ideaId) {
+        void deleteIdea(ideaId);
+      }
+    });
+  });
 }
 
 function renderFeedColumns() {
@@ -656,9 +709,16 @@ function renderFeedColumns() {
                 <span class="entry-id">${escapeHtml(role)}</span>
                 <h4>${escapeHtml(update.headline)}</h4>
               </div>
-              <div class="feed-meta">
-                <span>${escapeHtml(founderNameFromEmail(emailForUpdate(update)))}</span>
-                <span>${escapeHtml(formatTime(update.created_at))}</span>
+              <div class="feed-actions">
+                <div class="feed-meta">
+                  <span>${escapeHtml(founderNameFromEmail(emailForUpdate(update)))}</span>
+                  <span>${escapeHtml(formatTime(update.created_at))}</span>
+                </div>
+                ${
+                  canDeleteUpdate(update)
+                    ? '<button class="inline-delete" type="button">Delete</button>'
+                    : ""
+                }
               </div>
             </div>
             <div class="entry-note">${escapeHtml(update.wins)}</div>
@@ -705,6 +765,15 @@ function renderFeedColumns() {
     });
   });
 
+  document.querySelectorAll(".feed-card .inline-delete").forEach((button) => {
+    button.addEventListener("click", () => {
+      const updateId = button.closest(".feed-card")?.dataset.updateId;
+      if (updateId) {
+        void deleteUpdate(updateId);
+      }
+    });
+  });
+
   document.querySelectorAll(".comment-form").forEach((form) => {
     form.addEventListener("submit", (event) => {
       event.preventDefault();
@@ -719,6 +788,26 @@ function renderFeedColumns() {
       form.reset();
     });
   });
+}
+
+function canDeleteIdea(idea) {
+  if (!state.membership || !state.session) {
+    return false;
+  }
+
+  return (
+    state.membership.role === "CEO" ||
+    idea.author_user_id === state.session.userId ||
+    idea.author_email?.toLowerCase() === state.membership.email?.toLowerCase()
+  );
+}
+
+function canDeleteUpdate(update) {
+  if (!state.membership || !state.session) {
+    return false;
+  }
+
+  return state.membership.role === "CEO" || update.user_id === state.session.userId;
 }
 
 function renderWorkspace() {
