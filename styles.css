@@ -324,6 +324,30 @@ button:hover {
   background: rgba(255, 255, 255, 0.45);
 }
 
+#auth-feedback:empty {
+  display: none;
+}
+
+.status-callout {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--ink);
+}
+
+.status-callout.success {
+  background: rgba(33, 77, 66, 0.1);
+  border-color: rgba(33, 77, 66, 0.24);
+  color: var(--forest);
+}
+
+.status-callout.error {
+  background: rgba(181, 82, 51, 0.1);
+  border-color: rgba(181, 82, 51, 0.24);
+  color: var(--accent);
+}
+
 @media (max-width: 920px) {
   .hero,
   .auth-grid,

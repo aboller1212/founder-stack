@@ -1,43 +1,30 @@
-const STORAGE_KEY = "founder-stack:v1";
-const SESSION_KEY = "founder-stack:session";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2?bundle";
+import APP_CONFIG from "./config.js";
 
 const app = document.querySelector("#app");
 
+const supabase = createClient(
+  APP_CONFIG.supabaseUrl,
+  APP_CONFIG.supabasePublishableKey,
+  {
+    auth: {
+      detectSessionInUrl: false,
+      flowType: "pkce",
+    },
+  }
+);
+
 const state = {
-  database: readJson(STORAGE_KEY, { teams: {} }),
-  session: readJson(SESSION_KEY, null),
+  authMessage: "",
+  authTone: "info",
+  membership: null,
+  memberships: [],
+  session: null,
+  team: null,
+  updates: [],
 };
 
-function readJson(key, fallback) {
-  try {
-    const value = window.localStorage.getItem(key);
-    return value ? JSON.parse(value) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function persistDatabase() {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state.database));
-}
-
-function persistSession() {
-  if (!state.session) {
-    window.localStorage.removeItem(SESSION_KEY);
-    return;
-  }
-
-  window.localStorage.setItem(SESSION_KEY, JSON.stringify(state.session));
-}
-
-function slugTeamCode(teamCode) {
-  return teamCode.trim().toUpperCase();
-}
-
-function createPushId(team) {
-  const nextNumber = team.updates.length + 1;
-  return `push-${String(nextNumber).padStart(4, "0")}`;
-}
+const updateRoleMap = new Map();
 
 function getTodayLocalDate() {
   const now = new Date();
@@ -56,160 +43,225 @@ function formatTime(timestamp) {
   }).format(new Date(timestamp));
 }
 
-function createTeam({ teamCode, email, role }) {
-  const normalizedCode = slugTeamCode(teamCode);
-  const ownerName = email.split("@")[0].replace(/[._-]+/g, " ");
-  const team = {
-    code: normalizedCode,
-    name: `${ownerName}'s founder room`,
-    members: {},
-    updates: [],
-    createdAt: new Date().toISOString(),
-  };
-
-  team.members[email] = {
-    email,
-    role,
-    firstSeenAt: new Date().toISOString(),
-  };
-
-  state.database.teams[normalizedCode] = team;
-  persistDatabase();
-  return team;
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
-function signIn({ email, teamCode, role }) {
-  const normalizedCode = slugTeamCode(teamCode);
-  let team = state.database.teams[normalizedCode];
+function nextPushId() {
+  return `push-${String(state.updates.length + 1).padStart(4, "0")}`;
+}
 
-  if (!team) {
-    team = createTeam({ teamCode: normalizedCode, email, role });
+function renderStatus(container, message, tone = "info") {
+  if (!message) {
+    container.innerHTML = "";
+    return;
   }
 
-  team.members[email] = {
-    email,
-    role,
-    firstSeenAt: team.members[email]?.firstSeenAt || new Date().toISOString(),
-  };
+  container.innerHTML = `<div class="status-callout ${tone}">${escapeHtml(message)}</div>`;
+}
 
-  state.session = {
-    email,
-    role,
-    teamCode: normalizedCode,
-  };
+async function exchangeAuthCodeIfPresent() {
+  const params = new URL(window.location.href).searchParams;
+  const authCode = params.get("code");
 
-  persistDatabase();
-  persistSession();
+  if (!authCode) {
+    return;
+  }
+
+  const { error } = await supabase.auth.exchangeCodeForSession(authCode);
+
+  if (error) {
+    state.authMessage = error.message;
+    state.authTone = "error";
+  }
+
+  const cleanUrl = new URL(window.location.href);
+  cleanUrl.searchParams.delete("code");
+  cleanUrl.searchParams.delete("type");
+  window.history.replaceState({}, "", cleanUrl.pathname || "/");
+}
+
+async function fetchWorkspace() {
+  const sessionResult = await supabase.auth.getSession();
+  state.session = sessionResult.data.session;
+
+  if (!state.session?.user) {
+    state.membership = null;
+    state.memberships = [];
+    state.team = null;
+    state.updates = [];
+    return;
+  }
+
+  const user = state.session.user;
+
+  const claimResult = await supabase
+    .from("memberships")
+    .update({ user_id: user.id })
+    .eq("email", user.email)
+    .is("user_id", null);
+
+  if (claimResult.error) {
+    state.authMessage = claimResult.error.message;
+    state.authTone = "error";
+  }
+
+  const membershipResult = await supabase
+    .from("memberships")
+    .select("id, team_id, email, role, user_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (membershipResult.error) {
+    state.authMessage = membershipResult.error.message;
+    state.authTone = "error";
+    return;
+  }
+
+  if (!membershipResult.data) {
+    state.membership = null;
+    state.team = null;
+    state.memberships = [];
+    state.updates = [];
+    state.authMessage =
+      "This email is authenticated, but it is not on the founder roster yet.";
+    state.authTone = "error";
+    return;
+  }
+
+  state.membership = membershipResult.data;
+
+  const [teamResult, membersResult, updatesResult] = await Promise.all([
+    supabase
+      .from("teams")
+      .select("id, name, created_at")
+      .eq("id", state.membership.team_id)
+      .single(),
+    supabase
+      .from("memberships")
+      .select("id, email, role, user_id")
+      .eq("team_id", state.membership.team_id)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("updates")
+      .select("id, team_id, user_id, headline, wins, blockers, next_move, created_at")
+      .eq("team_id", state.membership.team_id)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  if (teamResult.error || membersResult.error || updatesResult.error) {
+    state.authMessage =
+      teamResult.error?.message ||
+      membersResult.error?.message ||
+      updatesResult.error?.message ||
+      "Unable to load the founder workspace.";
+    state.authTone = "error";
+    return;
+  }
+
+  state.team = teamResult.data;
+  state.memberships = membersResult.data;
+  state.updates = updatesResult.data;
+
+  updateRoleMap.clear();
+  state.memberships.forEach((member) => {
+    if (member.user_id) {
+      updateRoleMap.set(member.user_id, member.role);
+    }
+  });
+}
+
+async function requestMagicLink(email) {
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: APP_CONFIG.siteUrl,
+      shouldCreateUser: false,
+    },
+  });
+
+  if (error) {
+    state.authMessage = error.message;
+    state.authTone = "error";
+    render();
+    return;
+  }
+
+  state.authMessage =
+    "Magic link sent. Open the email on this same device and browser to finish sign-in.";
+  state.authTone = "success";
   render();
 }
 
-function signOut() {
+async function signOut() {
+  await supabase.auth.signOut();
   state.session = null;
-  persistSession();
+  state.membership = null;
+  state.memberships = [];
+  state.team = null;
+  state.updates = [];
+  state.authMessage = "";
   render();
 }
 
-function currentTeam() {
-  if (!state.session) {
-    return null;
-  }
-
-  return state.database.teams[state.session.teamCode] || null;
-}
-
-function addUpdate(formData) {
-  const team = currentTeam();
-  if (!team || !state.session) {
+async function addUpdate(formData) {
+  if (!state.membership || !state.session?.user) {
     return;
   }
 
-  team.updates.unshift({
-    id: createPushId(team),
-    date: getTodayLocalDate(),
-    headline: formData.get("headline").trim(),
-    wins: formData.get("wins").trim(),
-    blockers: formData.get("blockers").trim(),
-    nextMove: formData.get("nextMove").trim(),
-    authorEmail: state.session.email,
-    authorRole: state.session.role,
-    createdAt: new Date().toISOString(),
-  });
+  const payload = {
+    team_id: state.membership.team_id,
+    user_id: state.session.user.id,
+    headline: String(formData.get("headline")).trim(),
+    wins: String(formData.get("wins")).trim(),
+    blockers: String(formData.get("blockers")).trim(),
+    next_move: String(formData.get("nextMove")).trim(),
+  };
 
-  persistDatabase();
-  render();
-}
+  const { error } = await supabase.from("updates").insert(payload);
 
-function seedDemoData() {
-  const team = currentTeam();
-  if (!team || team.updates.length > 0) {
+  if (error) {
+    state.authMessage = error.message;
+    state.authTone = "error";
+    render();
     return;
   }
 
-  const members = [
-    { email: "ceo@team.com", role: "CEO" },
-    { email: "coo@team.com", role: "COO" },
-    { email: "cfo@team.com", role: "CFO" },
-  ];
-
-  members.forEach((member) => {
-    team.members[member.email] = team.members[member.email] || {
-      ...member,
-      firstSeenAt: new Date().toISOString(),
-    };
-  });
-
-  [
-    {
-      headline: "Locked product demo narrative for investor meeting",
-      wins: "Refined the positioning, set the storyline, and aligned launch timing.",
-      blockers: "Need final usage screenshot from the product walkthrough.",
-      nextMove: "Capture product image and rehearse with the full founder team.",
-      authorEmail: "ceo@team.com",
-      authorRole: "CEO",
-    },
-    {
-      headline: "Tightened operating cadence and owner map for the week",
-      wins: "Defined Monday metrics review, Wednesday pipeline sync, and Friday finance close.",
-      blockers: "Sales follow-up process still lives in too many places.",
-      nextMove: "Collapse follow-up ownership into one shared workflow by tomorrow.",
-      authorEmail: "coo@team.com",
-      authorRole: "COO",
-    },
-    {
-      headline: "April cash view is reconciled and runway is clear",
-      wins: "Updated burn, runway, and collection timing assumptions for the next quarter.",
-      blockers: "Waiting on one vendor invoice to finalize actuals.",
-      nextMove: "Finalize the board-ready finance snapshot and share before noon.",
-      authorEmail: "cfo@team.com",
-      authorRole: "CFO",
-    },
-  ].forEach((entry, index) => {
-    team.updates.push({
-      id: `push-${String(index + 1).padStart(4, "0")}`,
-      date: getTodayLocalDate(),
-      createdAt: new Date(Date.now() - index * 1000 * 60 * 90).toISOString(),
-      ...entry,
-    });
-  });
-
-  team.updates.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  persistDatabase();
+  state.authMessage = "";
+  await fetchWorkspace();
   render();
 }
 
 function exportJson() {
-  const team = currentTeam();
-  if (!team) {
+  if (!state.team) {
     return;
   }
 
-  const blob = new Blob([JSON.stringify(team, null, 2)], {
-    type: "application/json",
-  });
+  const blob = new Blob(
+    [
+      JSON.stringify(
+        {
+          team: state.team,
+          members: state.memberships,
+          updates: state.updates,
+        },
+        null,
+        2
+      ),
+    ],
+    {
+      type: "application/json",
+    }
+  );
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `${team.code.toLowerCase()}-founder-stack.json`;
+  anchor.download = "founder-stack-export.json";
   anchor.click();
   URL.revokeObjectURL(url);
 }
@@ -218,22 +270,21 @@ function renderAuth() {
   const template = document.querySelector("#auth-template");
   app.replaceChildren(template.content.cloneNode(true));
 
+  const feedback = document.querySelector("#auth-feedback");
+  renderStatus(feedback, state.authMessage, state.authTone);
+
   const form = document.querySelector("#auth-form");
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const formData = new FormData(form);
-    signIn({
-      email: String(formData.get("email")).trim().toLowerCase(),
-      teamCode: String(formData.get("teamCode")),
-      role: String(formData.get("role")),
-    });
+    void requestMagicLink(String(formData.get("email")).trim().toLowerCase());
   });
 }
 
-function renderHistory(team) {
+function renderHistory() {
   const historyList = document.querySelector("#history-list");
 
-  if (team.updates.length === 0) {
+  if (state.updates.length === 0) {
     historyList.innerHTML = `
       <div class="history-empty">
         No pushes yet. Your first founder update will land here as an immutable
@@ -243,41 +294,30 @@ function renderHistory(team) {
     return;
   }
 
-  historyList.innerHTML = team.updates
-    .map(
-      (update) => `
+  historyList.innerHTML = state.updates
+    .map((update, index) => {
+      const role = updateRoleMap.get(update.user_id) || "Founder";
+      return `
         <article class="history-entry">
           <div class="entry-meta">
-            <span class="entry-id">${update.id}</span>
-            <div class="entry-author">${update.authorRole}</div>
-            <div class="entry-time">${update.authorEmail}</div>
-            <div class="entry-time">${formatTime(update.createdAt)}</div>
+            <span class="entry-id">push-${String(state.updates.length - index).padStart(4, "0")}</span>
+            <div class="entry-author">${escapeHtml(role)}</div>
+            <div class="entry-time">${escapeHtml(update.created_at ? formatTime(update.created_at) : "")}</div>
           </div>
           <div class="entry-copy">
             <h4>${escapeHtml(update.headline)}</h4>
             <p><strong>Wins:</strong> ${escapeHtml(update.wins)}</p>
             <p><strong>Blockers:</strong> ${escapeHtml(update.blockers)}</p>
-            <p><strong>Next:</strong> ${escapeHtml(update.nextMove)}</p>
+            <p><strong>Next:</strong> ${escapeHtml(update.next_move)}</p>
           </div>
         </article>
-      `
-    )
+      `;
+    })
     .join("");
 }
 
-function escapeHtml(value) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
 function renderWorkspace() {
-  const team = currentTeam();
-
-  if (!team || !state.session) {
+  if (!state.session?.user || !state.membership || !state.team) {
     renderAuth();
     return;
   }
@@ -285,34 +325,34 @@ function renderWorkspace() {
   const template = document.querySelector("#workspace-template");
   app.replaceChildren(template.content.cloneNode(true));
 
-  document.querySelector("#team-name").textContent = team.name;
-  document.querySelector("#team-code").textContent = team.code;
-  document.querySelector("#member-summary").textContent = `${state.session.role} • ${state.session.email}`;
-  document.querySelector("#push-count").textContent = String(team.updates.length);
+  document.querySelector("#team-name").textContent = state.team.name;
+  document.querySelector("#member-summary").textContent = `${state.membership.role} • ${state.membership.email}`;
+  document.querySelector("#push-count").textContent = String(state.updates.length);
   document.querySelector("#today-count").textContent = String(
-    team.updates.filter((entry) => entry.date === getTodayLocalDate()).length
+    state.updates.filter((entry) => entry.created_at?.slice(0, 10) === getTodayLocalDate()).length
   );
-  document.querySelector("#member-count").textContent = String(
-    Object.keys(team.members).length
-  );
-  document.querySelector("#next-push-id").textContent = createPushId(team);
+  document.querySelector("#member-count").textContent = String(state.memberships.length);
+  document.querySelector("#next-push-id").textContent = nextPushId();
 
-  renderHistory(team);
+  const workspaceFeedback = document.querySelector("#workspace-feedback");
+  renderStatus(workspaceFeedback, state.authMessage, state.authTone);
+  renderHistory();
 
-  document.querySelector("#sign-out").addEventListener("click", signOut);
-  document.querySelector("#seed-demo").addEventListener("click", seedDemoData);
+  document.querySelector("#sign-out").addEventListener("click", () => {
+    void signOut();
+  });
   document.querySelector("#export-json").addEventListener("click", exportJson);
 
   const updateForm = document.querySelector("#update-form");
   updateForm.addEventListener("submit", (event) => {
     event.preventDefault();
-    addUpdate(new FormData(updateForm));
+    void addUpdate(new FormData(updateForm));
     updateForm.reset();
   });
 }
 
 function render() {
-  if (!state.session) {
+  if (!state.session?.user || !state.membership || !state.team) {
     renderAuth();
     return;
   }
@@ -320,4 +360,14 @@ function render() {
   renderWorkspace();
 }
 
-render();
+async function boot() {
+  await exchangeAuthCodeIfPresent();
+  await fetchWorkspace();
+  render();
+
+  supabase.auth.onAuthStateChange(() => {
+    void fetchWorkspace().then(render);
+  });
+}
+
+void boot();
